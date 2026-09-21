@@ -1,0 +1,157 @@
+{
+    "Sentinel 2": {
+        "id": "S2_L2A-1",
+        "composites": {
+            "truecolor": [
+                "B04",
+                "B03",
+                "B02"
+            ],
+            "falsecolor_1": [
+                "B12",
+                "B08",
+                "B04"
+            ],
+            "falsecolor_2": [
+                "B08",
+                "B04",
+                "B03"
+            ]
+        },
+        "orbit_id": 4,
+        "exists_geom": true,
+        "nodata": 0
+    },
+    "Landsat 2": {
+        "id": "landsat-2",
+        "composites": {
+            "truecolor": [
+                "red",
+                "green",
+                "blue"
+            ],
+            "falsecolor_1": [
+                "swir22",
+                "nir08",
+                "red"
+            ],
+            "falsecolor_2": [
+                "nir08",
+                "red",
+                "green"
+            ]
+        },
+        "orbit_id": 4,
+        "exists_geom": false
+    },
+    "Amazonia-1/WFI": {
+        "id": "AMZ1-WFI-L4-DN-1",
+        "composites": {
+            "truecolor": [
+                "BAND3",
+                "BAND2",
+                "BAND1"
+            ],
+            "falsecolor_1": [
+                "BAND3",
+                "BAND4",
+                "BAND2"
+            ],
+            "falsecolor_2": [
+                "BAND4",
+                "BAND3",
+                "BAND2"
+            ]
+        },
+        "orbit_id": 4,
+        "exists_geom": false
+    },
+    "CBERS-4/WFI": {
+        "id": "CB4-WFI-L4-DN-1",
+        "composites": {
+            "truecolor": [
+                "BAND15",
+                "BAND14",
+                "BAND13"
+            ],
+            "falsecolor_1": [
+                "BAND15",
+                "BAND16",
+                "BAND14"
+            ],
+            "falsecolor_2": [
+                "BAND16",
+                "BAND15",
+                "BAND14"
+            ]
+        },
+        "orbit_id": 4,
+        "exists_geom": false
+    },
+    "CBERS-4A/WFI": {
+        "id": "CB4A-WFI-L4-DN-1",
+        "composites": {
+            "truecolor": [
+                "BAND15",
+                "BAND14",
+                "BAND13"
+            ],
+            "falsecolor_1": [
+                "BAND15",
+                "BAND16",
+                "BAND14"
+            ],
+            "falsecolor_2": [
+                "BAND16",
+                "BAND15",
+                "BAND14"
+            ]
+        },
+        "orbit_id": 4,
+        "exists_geom": false
+    },
+    "CBERS-4/MUX": {
+        "id": "CB4-MUX-L4-DN-1",
+        "composites": {
+            "truecolor": [
+                "BAND7",
+                "BAND6",
+                "BAND5"
+            ],
+            "falsecolor_1": [
+                "BAND7",
+                "BAND8",
+                "BAND6"
+            ],
+            "falsecolor_2": [
+                "BAND8",
+                "BAND7",
+                "BAND6"
+            ]
+        },
+        "orbit_id": 4,
+        "exists_geom": false
+    },
+    "CBERS-4A/MUX": {
+        "id": "CB4A-MUX-L4-DN-1",
+        "composites": {
+            "truecolor": [
+                "BAND7",
+                "BAND6",
+                "BAND5"
+            ],
+            "falsecolor_1": [
+                "BAND7",
+                "BAND8",
+                "BAND6"
+            ],
+            "falsecolor_2": [
+                "BAND8",
+                "BAND7",
+                "BAND6"
+            ]
+        },
+        "orbit_id": 4,
+        "exists_geom": false
+    }
+}

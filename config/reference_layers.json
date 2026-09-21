@@ -1,0 +1,353 @@
+{
+  "basemaps": {
+    "osm": {
+      "name": "OSM",
+      "type": "XYZ",
+      "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      "enabled": true
+    },
+    "google_satellite": {
+      "name": "Google Satélite",
+      "type": "XYZ",
+      "url": "https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+      "enabled": true
+    },
+    "google_hybrid": {
+      "name": "Google Hybrid",
+      "type": "XYZ",
+      "url": "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}",
+      "enabled": true
+    },
+    "esri_satellite": {
+      "name": "ESRI Satélite",
+      "type": "XYZ",
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "enabled": true
+    },
+    "esri_shaded_relief": {
+      "name": "ESRI Shaded Relief",
+      "type": "XYZ",
+      "url": "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+      "enabled": true
+    }
+  },
+  "limites_politicos": {
+    "paises_ams": {
+      "name": "Países AMS",
+      "type": "WFS",
+      "url": "https://terrabrasilis.dpi.inpe.br/queimadas/geoserver/wfs",
+      "layer": "bdqueimadas:paises",
+      "cql_filter": "continente_id = 8",
+      "enabled": true
+    },
+    "biomas": {
+      "name": "Biomas",
+      "type": "WFS",
+      "url": "https://terrabrasilis.dpi.inpe.br/queimadas/geoserver/wfs",
+      "layer": "bdqueimadas:biomas_brasileiros",
+      "enabled": true
+    },
+    "estados": {
+      "name": "Estados",
+      "type": "WFS",
+      "url": "https://terrabrasilis.dpi.inpe.br/queimadas/geoserver/wfs",
+      "layer": "bdqueimadas:estados",
+      "cql_filter": "id_0 = 33",
+      "enabled": true
+    },
+    "municipios": {
+      "name": "Municípios",
+      "type": "WFS",
+      "url": "https://terrabrasilis.dpi.inpe.br/queimadas/geoserver/wfs",
+      "layer": "bdqueimadas:municipios",
+      "cql_filter": "id_0 = 33",
+      "enabled": true
+    },
+    "amz_legal": {
+      "name": "AMZ Legal",
+      "type": "WFS",
+      "url": "https://terrabrasilis.dpi.inpe.br/queimadas/geoserver/wfs",
+      "layer": "bdqueimadas:regioes_especiais",
+      "cql_filter": "nome = 'Amazônia Legal'",
+      "enabled": true
+    }
+  },
+  "localidades_areas_urbanizadas": {
+    "localidades_capitais": {
+      "name": "Localidades - Capitais",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/dadosgeo/IBGE/Localidades_Capitais_BR.gpkg",
+      "filename": "Localidades_Capitais_BR.gpkg",
+      "enabled": true
+    },
+    "localidades_sedes_municipais": {
+      "name": "Localidades - Sedes Municipais",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/dadosgeo/IBGE/Localidades_Sedes_Municipais_BR.gpkg",
+      "filename": "Localidades_Sedes_Municipais_BR.gpkg",
+      "enabled": true
+    },
+    "areas_urbanizadas": {
+      "name": "Áreas Urbanizadas",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/dadosgeo/IBGE/Areas_Urbanizadas_2022_BR.gpkg",
+      "filename": "Areas_Urbanizadas_2022_BR.gpkg",
+      "enabled": true
+    }
+  },
+  "grades_satelites": {
+    "sentinel_2": {
+      "name": "Sentinel 2",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/dadosgeo/Grades_Satelites/Grade_Sentinel_BR.gpkg",
+      "filename": "Grade_Sentinel.gpkg",
+      "enabled": true
+    },
+    "landsat": {
+      "name": "Landsat",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/dadosgeo/Grades_Satelites/Grade_Landsat_BR.gpkg",
+      "filename": "Grade_Landsat_BR.gpkg",
+      "enabled": true
+    },
+    "landsat_util": {
+      "name": "Landsat Util",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/dadosgeo/Grades_Satelites/Grade_Landsat_Util_BR.gpkg",
+      "filename": "Grade_Landsat_Util_BR.gpkg",
+      "enabled": true
+    }
+  },
+  "mapeamento_cobertura_uso_terra": {
+    "terraclass": {
+      "name": "Terraclass 2024",
+      "type": "WMS",
+      "url": "https://www.terraclass.gov.br/geoserver/wms",
+      "crs": "EPSG:4326",
+      "format": "image/png",
+      "enabled": true,
+      "layers": {
+        "terraclass_2024": {
+          "name": "Terraclass 2024",
+          "layer": "TerraClass:tc_amazonia_cerrado_2024_raster",
+          "enabled": true,
+          "temporal": false
+        }
+      }
+    }
+  },
+  "territorio_areas_protegidas": {
+    "uc_federal": {
+      "name": "UC Federal",
+      "tipo_area": "Unidade de Conservação Federal",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/ucf_icmbio_mma.gpkg",
+      "filename": "ucf_icmbio_mma.gpkg",
+      "enabled": true
+    },
+    "uc_estadual": {
+      "name": "UC Estadual",
+      "tipo_area": "Unidade de Conservação Estadual",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/uce_mma.gpkg",
+      "filename": "uce_mma.gpkg",
+      "enabled": true
+    },
+    "uc_municipal": {
+      "name": "UC Municipal",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/dadosgeo/Unidades_Conservacao/UC_Municipal.gpkg",
+      "filename": "UC_Municipal.gpkg",
+      "enabled": true
+    },
+    "terras_indigenas": {
+      "name": "Terras Indígenas",
+      "tipo_area": "Terra Indígena",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/ti_funai.gpkg",
+      "filename": "ti_funai.gpkg",
+      "enabled": true
+    },
+    "assentamentos": {
+      "name": "Assentamentos",
+      "tipo_area": "Assentamento",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/pa_assentamentos.gpkg",
+      "filename": "pa_assentamentos.gpkg",
+      "enabled": true
+    },
+    "quilombos": {
+      "name": "Quilombos",
+      "tipo_area": "Quilombo",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/quilombos.gpkg",
+      "filename": "quilombos.gpkg",
+      "enabled": true
+    }
+  },
+  "programa_queimadas": {
+    "focos": {
+      "name": "Focos de Calor",
+      "type": "WFS",
+      "url": "https://terrabrasilis.dpi.inpe.br/queimadas/geoserver/wfs",
+      "enabled": true
+    },
+    "eventos": {
+      "name": "Eventos",
+      "type": "WFS",
+      "enabled": false
+    },
+    "area_queimada": {
+      "name": "Área Queimada",
+      "type": "WFS",
+      "enabled": false
+    }
+  },
+  "monitoramento_goes": {
+    "pontos_atencao_48h": {
+      "name": "Pontos de Atenção GOES - 48h",
+      "type": "KML",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/focos/kml/focos_goes_ponto_atencao_48hr/focos_goes_ponto_atencao_abi_48hr.kml",
+      "filename": "focos_goes_ponto_atencao_abi_48hr.kml",
+      "force_download": true,
+      "enabled": true
+    },
+    "eventos_ativos": {
+      "name": "Eventos Ativos",
+      "type": "GEOPACKAGE",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/eventos/ativos/eventos_ativos.gpkg",
+      "filename": "eventos_ativos.gpkg",
+      "force_download": true,
+      "enabled": true
+    }
+  },
+  "servicos_wms_wmts": {
+    "nasa_gibs": {
+      "name": "NASA GIBS",
+      "type": "WMS",
+      "url": "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi",
+      "crs": "EPSG:4326",
+      "enabled": true,
+      "layers": {
+        "modis_aqua_bands721": {
+          "name": "MODIS Aqua 721",
+          "layer": "MODIS_Aqua_CorrectedReflectance_Bands721",
+          "tile_matrix_set": "250m",
+          "format": "image/jpeg",
+          "enabled": true,
+          "temporal": true
+        },
+        "modis_terra_bands721": {
+          "name": "MODIS Terra 721",
+          "layer": "MODIS_Terra_CorrectedReflectance_Bands721",
+          "tile_matrix_set": "250m",
+          "format": "image/jpeg",
+          "enabled": true,
+          "temporal": true
+        },
+        "viirs_snpp_m11_i2_i1": {
+          "name": "VIIRS SNPP M11-I2-I1",
+          "layer": "VIIRS_SNPP_CorrectedReflectance_BandsM11-I2-I1",
+          "tile_matrix_set": "250m",
+          "format": "image/jpeg",
+          "enabled": true,
+          "temporal": true
+        },
+        "viirs_noaa20_m11_i2_i1": {
+          "name": "VIIRS NOAA-20 M11-I2-I1",
+          "layer": "VIIRS_NOAA20_CorrectedReflectance_BandsM11-I2-I1",
+          "tile_matrix_set": "250m",
+          "format": "image/jpeg",
+          "enabled": true,
+          "temporal": true
+        },
+        "viirs_noaa21_m11_i2_i1": {
+          "name": "VIIRS NOAA-21 M11-I2-I1",
+          "layer": "VIIRS_NOAA21_CorrectedReflectance_BandsM11-I2-I1",
+          "tile_matrix_set": "250m",
+          "format": "image/jpeg",
+          "enabled": true,
+          "temporal": true
+        },
+        "goes_east_firetemp": {
+          "name": "GOES-East Fire Temp",
+          "layer": "GOES-East_ABI_FireTemp",
+          "tile_matrix_set": "1km",
+          "format": "image/png",
+          "enabled": true,
+          "temporal": false
+        },
+        "goes_east_geocolor": {
+          "name": "GOES-East GeoColor",
+          "layer": "GOES-East_ABI_GeoColor",
+          "tile_matrix_set": "1km",
+          "format": "image/png",
+          "enabled": true,
+          "temporal": false
+        }
+      }
+    },
+    "inpe_goes19": {
+      "name": "INPE GOES-19",
+      "type": "WMS",
+      "url": "https://data.inpe.br/queimadas/geoserver/bdqueimadas/wms",
+      "crs": "EPSG:4326",
+      "format": "image/png",
+      "enabled": true,
+      "layers": {
+        "goes19_composicao632": {
+          "name": "GOES-19 B6-B3-B2",
+          "layer": "GOES19-composicao632_ultima_passagem",
+          "enabled": true
+        }
+      }
+    },
+    "inpe_meteorologia": {
+      "name": "INPE Risco de Fogo e Meteorologia",
+      "type": "WMS",
+      "url": "https://data.inpe.br/queimadas/geoserver/dados-meteorologicos/wms",
+      "crs": "EPSG:4326",
+      "format": "image/png",
+      "enabled": true,
+      "layers": {
+        "fire_risk": {
+          "name": "Risco de Fogo",
+          "layer": "FireRisk",
+          "temporal": true,
+          "enabled": true
+        },
+        "precipitation": {
+          "name": "Precipitação",
+          "layer": "Precipitation",
+          "temporal": true,
+          "enabled": true
+        },
+        "days_without_rain": {
+          "name": "Número de Dias Sem Chuva",
+          "layer": "NumberDaysWithoutRain",
+          "temporal": true,
+          "enabled": true
+        },
+        "temperature": {
+          "name": "Temperatura Máxima",
+          "layer": "Temperature",
+          "temporal": true,
+          "enabled": true
+        },
+        "relative_humidity": {
+          "name": "Umidade Relativa Mínima",
+          "layer": "RelativeHumidity",
+          "temporal": true,
+          "enabled": true
+        },
+        "fire_risk_monthly": {
+            "name": "Risco de Fogo Mensal",
+            "layer": "RF_Media_Mensal",
+            "temporal": true,
+            "temporal_granularity": "month",
+            "enabled": true
+        }
+      }
+    }
+  }
+}
