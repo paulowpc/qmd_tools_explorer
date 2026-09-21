@@ -185,7 +185,7 @@ Consulte o arquivo [`LICENSE`](LICENSE) para obter os termos completos da licen�
 
 ## 📝 Registro de alterações
 
-### 1.0.0 — 2026-09-21
+### 0.1.0 — 2026-09-21
 
 - Primeira versão do QMD Tools Explorer;
 - Pesquisa de imagens utilizando STAC API;

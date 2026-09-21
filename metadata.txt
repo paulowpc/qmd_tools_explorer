@@ -6,7 +6,7 @@ description=Ferramenta para pesquisa, visualização e exploração de imagens e
 
 about=O QMD Tools Explorer é um plugin para QGIS desenvolvido para facilitar a pesquisa, visualização e exploração de imagens de sensoriamento remoto e dados geoespaciais. O plugin permite consultar catálogos STAC, explorar produtos do Brasil Data Cube, consultar dados relacionados ao monitoramento de queimadas e visualizar camadas de referência para apoio à análise espacial.
 
-version=1.0.0
+version=0.1.0
 
 qgisMinimumVersion=3.28
 
@@ -31,5 +31,4 @@ deprecated=False
 tags=STAC, Brasil Data Cube, Brazil Data Cube, Sensoriamento Remoto, Queimadas, Incêndios, INPE, Geoprocessamento, Imagens de Satélite
 
 changelog:
-     - 1.0 (2026-09-21)
-     Started
+     - 0.1.0 (2026-09-21) -  Started initial version of the plugin
