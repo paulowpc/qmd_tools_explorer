@@ -289,8 +289,8 @@ class SystemWidget(QWidget):
 
         path_text = str(module_file).replace("\\", "/").lower()
 
-        if "/qmd_image_explorer/vendor/" in path_text:
-            origin = "QMD Tools Erolorer"
+        if "/qmd_tools_explorer/vendor/" in path_text:
+            origin = "QMD Tools Explorer"
         elif "/plugins/qgis_stac/lib/" in path_text:
             origin = "STAC API Browser"
         elif "/site-packages/" in path_text:
@@ -320,7 +320,7 @@ class SystemWidget(QWidget):
 
 class DependencyCheckDialog(QDialog):
     """
-    Janela de verificação das dependências do QMD Tools Erolorer.
+    Janela de verificação das dependências do QMD Tools Explorer.
 
     Apenas detecta e apresenta o status. Não instala pacotes.
     """
@@ -613,7 +613,7 @@ class DependencyInstallDialog(QDialog):
             self.list_label.setText(
                 "O ambiente Python do QGIS está com a instalação "
                 "no diretório do usuário desabilitada.<br><br>"
-                "Por segurança, o QMD Tools Erolorer não tentará "
+                "Por segurança, o QMD Tools Explorer não tentará "
                 "gravar diretamente em Program Files."
             )
 

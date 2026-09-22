@@ -155,7 +155,7 @@ class AnalisadorAreasCIMAN:
 
         QgsMessageLog.logMessage(
             texto,
-            "QMD Image Explorer",
+            "QMD Tools Explorer",
             nivel,
         )
 

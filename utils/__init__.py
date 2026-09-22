@@ -1,1 +1,1 @@
-"""Utilitários do QMD Image Explorer."""
+"""Utilitários do QMD Tools Explorer."""

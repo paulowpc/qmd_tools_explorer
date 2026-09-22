@@ -124,6 +124,26 @@ https://data.inpe.br/bdc
 
 ---
 
+O QMD Tools Explorer utiliza algumas bibliotecas Python adicionais:
+
+- `pystac`;
+- `pystac-client`;
+- `shapely`;
+- `requests`;
+- `lxml`.
+
+As bibliotecas `pystac` e `pystac-client` podem ser disponibilizadas pelo
+plugin **STAC API Browser**, caso ele esteja instalado no ambiente QGIS.
+
+O QMD Tools Explorer possui uma ferramenta de **verificação de dependências**
+que permite verificar quais bibliotecas estão disponíveis no ambiente Python
+do QGIS.
+
+Caso alguma dependência esteja ausente, o plugin informa ao usuário quais
+bibliotecas precisam ser instaladas.
+
+---
+
 ## 🚀 Instalação
 
 ### Repositório oficial do QGIS

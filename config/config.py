@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Configurações do QMD Image Explorer."""
+"""Configurações do QMD Tools Explorer."""
 
 import json
 import shutil
@@ -48,7 +48,7 @@ def load_collections():
 # =========================================================
 
 def get_cache_dir():
-    """Retorna o diretório de cache padrão do QMD Image Explorer."""
+    """Retorna o diretório de cache padrão do QMD Tools Explorer."""
 
     qgis_dir = Path(
         QgsApplication.qgisSettingsDirPath()

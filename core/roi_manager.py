@@ -112,7 +112,7 @@ class ROIManager(QObject):
         layer.renderer().setSymbol(symbol)
         layer.setOpacity(1.0)
         layer.setCustomProperty(
-            "qmd_image_explorer_roi",
+            "qmd_tools_explorer_roi",
             True,
         )
 

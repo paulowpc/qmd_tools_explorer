@@ -31,7 +31,7 @@ except ImportError as e:
     raise ImportError(
         "Não foi possível carregar a dependência 'pystac_client'. "
         "Verifique se as pastas 'pystac' e 'pystac_client' estão "
-        "dentro de qmd_image_explorer/vendor/."
+        "dentro de qmd_tools_explorer/vendor/."
     ) from e
 
 
