@@ -5,6 +5,7 @@ import json
 import shutil
 import urllib.request
 import os
+from urllib.parse import urlparse
 
 from qgis.core import (
     QgsProject,
@@ -638,6 +639,15 @@ class AnalisarPontosGoesDialog(QWidget):
         temp_path = local_path.with_suffix(
             local_path.suffix + ".part"
         )
+        
+        url = layer_config["url"]
+
+        parsed_url = urlparse(url)
+
+        if parsed_url.scheme not in {"http", "https"}:
+            raise ValueError(
+                f"Esquema de URL não permitido: {parsed_url.scheme}"
+            )
 
         request = urllib.request.Request(
             layer_config["url"],
@@ -653,7 +663,7 @@ class AnalisarPontosGoesDialog(QWidget):
                 Qt.WaitCursor
             )
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # nosec B310
                 request,
                 timeout=120
             ) as response:
@@ -680,16 +690,18 @@ class AnalisarPontosGoesDialog(QWidget):
                 try:
                     temp_path.unlink()
 
-                except Exception:
-                    pass
+                except Exception as erro:
+                    print(
+                        f"[QMD Tools Explorer] "
+                        f"Não foi possível remover o arquivo temporário "
+                        f"{temp_path}: {erro}"
+                    )
 
             raise
 
         finally:
 
             QApplication.restoreOverrideCursor()
-
-        # ======================================================
    
     # ======================================================
     # OBTER CAMADAS CIMAN
@@ -2121,7 +2133,8 @@ class AnalisarPontosGoesDialog(QWidget):
                         f"{dia}/{mes}/{ano}"
                     )
 
-                except Exception:
+                except ValueError:
+                    # Mantém o texto original se a data não estiver no formato esperado.
                     pass
 
             return texto
@@ -2614,30 +2627,12 @@ class AnalisarPontosGoesDialog(QWidget):
                     int(id_evento)
                 )
 
-            except Exception:
+            except (ValueError, TypeError):
+                # O identificador não pode ser convertido para inteiro.
 
                 pass
 
         return dados
-
-        # dados = resultados.get(
-        #     id_evento
-        # )
-
-        # if dados is None:
-        #     dados = resultados.get(
-        #         str(id_evento)
-        #     )
-
-        # if dados is None:
-        #     try:
-        #         dados = resultados.get(
-        #             int(id_evento)
-        #         )
-        #     except Exception:
-        #         pass
-
-        # return dados
 
     # ======================================================
     # CRIAR CAMADA TEMPORÁRIA

@@ -1057,8 +1057,11 @@ class SearchWidget(QWidget):
         if self._roi_draw_tool is not None:
             try:
                 self._roi_draw_tool.clearRubberBand()
-            except Exception:
-                pass
+            except Exception as erro:
+                print(
+                    f"[QMD Tools Explorer] "
+                    f"Não foi possível limpar o desenho da área de interesse: {erro}"
+                )
 
         # Retorna os controles da ROI ao estado inicial.
         # O padrão é voltar para o extent do canvas, sem seleção de
@@ -1777,7 +1780,7 @@ class SearchWidget(QWidget):
                 },
             )
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # nosec B310
                 request,
                 timeout=120,
             ) as response:
@@ -1803,8 +1806,12 @@ class SearchWidget(QWidget):
 
                 try:
                     temp_path.unlink()
-                except Exception:
-                    pass
+                except Exception as erro:
+                    print(
+                        f"[QMD Tools Explorer] "
+                        f"Não foi possível remover o arquivo temporário "
+                        f"{temp_path}: {erro}"
+                    )
 
             log_message(
                 f"Erro ao baixar {layer_name}: {error}"

@@ -120,7 +120,8 @@ def get_saved_output_dir():
             if saved_path == default_path:
                 return ""
         except Exception:
-            pass
+            # Mantém o valor original caso não seja possível resolver os caminhos.
+            return str(value)
 
         return str(value)
 

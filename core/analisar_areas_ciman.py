@@ -149,9 +149,13 @@ class AnalisadorAreasCIMAN:
                 texto
             )
 
-        except Exception:
+        except Exception as erro:
 
-            pass
+            QgsMessageLog.logMessage(
+                f"Falha ao registrar mensagem no log: {erro}",
+                "QMD Tools Explorer",
+                Qgis.Warning,
+            )
 
         QgsMessageLog.logMessage(
             texto,

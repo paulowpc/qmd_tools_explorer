@@ -8,6 +8,8 @@ import tempfile
 import os
 from urllib.parse import quote
 
+from ..scripts import avisos_inmet_qgis
+
 from qgis.PyQt.QtCore import Qt, QVariant, QUrl, QDate
 from qgis.PyQt.QtNetwork import QNetworkRequest
 from qgis.PyQt.QtGui import QIcon
@@ -1332,7 +1334,7 @@ class LayersWidget(QWidget):
                 },
             )
 
-            with urllib.request.urlopen(
+            with urllib.request.urlopen(  # nosec B310
                 request,
                 timeout=120,
             ) as response:
@@ -1358,8 +1360,12 @@ class LayersWidget(QWidget):
 
                 try:
                     temp_path.unlink()
-                except Exception:
-                    pass
+                except Exception as erro:
+                    print(
+                        f"[QMD Tools Explorer] "
+                        f"Não foi possível remover o arquivo temporário "
+                        f"{temp_path}: {erro}"
+                    )
 
             log_message(
                 f"Erro ao baixar {layer_name}: {error}"
@@ -2514,23 +2520,7 @@ class LayersWidget(QWidget):
                 "Executando script de Alertas INMET..."
             )
 
-            with script_path.open(
-                "r",
-                encoding="utf-8"
-            ) as file:
-                code = compile(
-                    file.read(),
-                    str(script_path),
-                    "exec"
-                )
-
-            exec(
-                code,
-                {
-                    "__file__": str(script_path),
-                    "__name__": "__main__",
-                }
-            )
+            avisos_inmet_qgis.executar()
 
             log_message(
                 "Script de Alertas INMET finalizado."

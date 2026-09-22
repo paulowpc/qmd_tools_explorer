@@ -6,9 +6,10 @@ AVISOS INMET -> GeoPackage para QGIS
 import os
 import re
 import html
-import xml.etree.ElementTree as ET
+from lxml import etree
 from datetime import datetime, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urlparse
 
 from qgis.PyQt.QtCore import QVariant, Qt
 from qgis.PyQt.QtGui import QColor
@@ -28,6 +29,11 @@ from qgis.core import (
     QgsVectorFileWriter,
 )
 
+XML_PARSER = etree.XMLParser(
+    resolve_entities=False,
+    no_network=True,
+    load_dtd=False,
+)
 
 # ============================================================
 # CONFIGURAÇÃO
@@ -157,7 +163,8 @@ def parse_datetime(value):
 
     try:
         return datetime.fromisoformat(value)
-    except Exception:
+    except ValueError:
+        # Tenta os formatos alternativos abaixo.
         pass
 
     formatos = [
@@ -172,7 +179,8 @@ def parse_datetime(value):
                 value,
                 formato
             )
-        except Exception:
+        except ValueError:
+            # Tenta o próximo formato de data.
             pass
 
     return None
@@ -403,6 +411,13 @@ def baixar_xml(url):
         urlopen
     )
 
+    parsed_url = urlparse(url)
+
+    if parsed_url.scheme not in {"http", "https"}:
+        raise ValueError(
+            f"Esquema de URL não permitido: {parsed_url.scheme}"
+        )
+
     request = Request(
         url,
         headers={
@@ -411,14 +426,13 @@ def baixar_xml(url):
         }
     )
 
-    with urlopen(
+    with urlopen( # nosec B310
         request,
         timeout=30
     ) as response:
 
         return response.read()
-
-
+    
 # ============================================================
 # RSS
 # ============================================================
@@ -437,8 +451,9 @@ def obter_itens_rss():
         RSS_URL
     )
 
-    root = ET.fromstring(
-        data
+    root = etree.fromstring(
+        data,
+        parser=XML_PARSER,
     )
 
     itens = []
@@ -643,8 +658,9 @@ def obter_aviso(
         url
     )
 
-    root = ET.fromstring(
-        data
+    root = etree.fromstring(
+        data,
+        parser=XML_PARSER,
     )
 
     # msgType no documento CAP.
@@ -1143,8 +1159,13 @@ def criar_simbolo(cor):
             fill.setStrokeStyle(
                 Qt.SolidLine
             )
-        except Exception:
-            pass
+
+        except Exception as erro:
+            print(
+                f"[QMD Tools Explorer] "
+                f"Não foi possível definir o estilo da linha: {erro}"
+            )
+
 
     # NÃO usar symbol.setOpacity() aqui.
     #
@@ -1815,4 +1836,5 @@ def executar():
 # EXECUTAR
 # ============================================================
 
-executar()
+if __name__ == "__main__":
+    executar()

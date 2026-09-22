@@ -60,8 +60,8 @@ def log_message(message: str):
         try:
             _log_callback(message)
 
-        except Exception:
-            pass
+        except Exception as erro:
+            print(f"[DEBUG] Falha no callback de log: {erro}")
 
 
 # =========================================================
