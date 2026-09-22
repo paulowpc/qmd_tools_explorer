@@ -122,8 +122,6 @@ https://data.inpe.br/bdc
 - Conexão com a internet para acesso aos serviços e catálogos online;
 - A disponibilidade dos dados depende dos serviços externos consultados pelo plugin.
 
----
-
 O QMD Tools Explorer utiliza algumas bibliotecas Python adicionais:
 
 - `pystac`;
@@ -141,6 +139,23 @@ do QGIS.
 
 Caso alguma dependência esteja ausente, o plugin informa ao usuário quais
 bibliotecas precisam ser instaladas.
+
+### Instalação das dependências
+
+No **Windows**, quando uma dependência estiver ausente, o QMD Tools Explorer
+pode utilizar o `pip` para realizar a instalação no ambiente do usuário.
+
+No **Linux**, algumas distribuições utilizam um ambiente Python gerenciado
+pelo sistema operacional. Nesses casos, o QMD Tools Explorer não modifica
+diretamente esse ambiente utilizando `pip`.
+
+Quando uma dependência estiver ausente, o plugin orientará o usuário sobre
+a instalação utilizando o gerenciador de pacotes do sistema.
+
+Por exemplo, em sistemas baseados em Ubuntu/Debian:
+
+```bash
+sudo apt install python3-shapely
 
 ---
 
@@ -205,7 +220,7 @@ Consulte o arquivo [`LICENSE`](LICENSE) para obter os termos completos da licen�
 
 ## 📝 Registro de alterações
 
-### 0.1.0 — 2026-09-21
+### 0.1.2 — 2026-09-22
 
 - Primeira versão do QMD Tools Explorer;
 - Pesquisa de imagens utilizando STAC API;

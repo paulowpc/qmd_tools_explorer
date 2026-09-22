@@ -70,6 +70,8 @@ from ..core.stac_core import (
     log_message,
 )
 
+from ..core.dependencies import check_dependencies
+
 from ..utils.extent import (
     get_canvas_bbox,
 )

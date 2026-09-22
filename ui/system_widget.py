@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import sys
-import importlib
-from importlib import metadata
 from pathlib import Path
 import site
+import shutil
 
 from qgis.PyQt.QtCore import Qt, QProcess
 from qgis.PyQt.QtGui import QFont
@@ -14,48 +13,17 @@ from qgis.PyQt.QtWidgets import (
     QDialog, QDialogButtonBox,
 )
 
+from ..core.dependencies import (
+    DEPENDENCIES,
+    check_dependency,
+    missing_installable_dependencies,
+)
 
 class SystemWidget(QWidget):
-    # Modo de teste temporario do instalador.
-    # Simula lxml ausente sem alterar o ambiente Python.
-    TEST_INSTALLER = False
-    TEST_MISSING_PACKAGE = "lxml"
-
 
     """Módulo Sistema: apenas detecta e mostra dependências Python."""
 
-    DEPENDENCIES = [
-        {
-            "package": "pystac-client",
-            "import_name": "pystac_client",
-            "description": "Acesso a catálogos STAC",
-            "modules": ["Busca / Imagens de Satélite"],
-        },
-        {
-            "package": "pystac",
-            "import_name": "pystac",
-            "description": "Estrutura e objetos STAC",
-            "modules": ["Busca / Imagens de Satélite"],
-        },
-        {
-            "package": "shapely",
-            "import_name": "shapely",
-            "description": "Operações e análises geométricas",
-            "modules": ["Busca / Imagens de Satélite"],
-        },
-        {
-            "package": "requests",
-            "import_name": "requests",
-            "description": "Acesso a serviços HTTP",
-            "modules": ["Focos de Queimadas", "Resultados"],
-        },
-        {
-            "package": "lxml",
-            "import_name": "lxml",
-            "description": "Processamento XML",
-            "modules": ["Focos de Queimadas"],
-        },
-    ]
+    DEPENDENCIES = DEPENDENCIES
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -262,60 +230,18 @@ class SystemWidget(QWidget):
 
     @staticmethod
     def _detect_dependency(dependency):
-        """
-        Importa a biblioteca pelo ambiente real do QGIS e identifica
-        de onde ela veio pelo caminho do módulo.
-        """
-        import_name = dependency["import_name"]
+        """Detecta uma dependência usando o módulo central."""
 
-        try:
-            module = importlib.import_module(import_name)
-        except Exception:
+        result = check_dependency(dependency)
+
+        if not result["installed"]:
             return False, "—", "Não disponível"
 
-        module_file = Path(
-            getattr(module, "__file__", "")
-        ).resolve()
-
-        version = getattr(module, "__version__", None)
-
-        if not version:
-            try:
-                version = metadata.version(
-                    dependency["package"]
-                )
-            except Exception:
-                version = "não informada"
-
-        path_text = str(module_file).replace("\\", "/").lower()
-
-        if "/qmd_tools_explorer/vendor/" in path_text:
-            origin = "QMD Tools Explorer"
-        elif "/plugins/qgis_stac/lib/" in path_text:
-            origin = "STAC API Browser"
-        elif "/site-packages/" in path_text:
-            origin = "Ambiente Python"
-        else:
-            origin = "Outro"
-
-        return True, str(version), origin
-
-    @staticmethod
-    def _is_importable(module_name):
-        try:
-            importlib.import_module(module_name)
-            return True
-        except Exception:
-            return False
-
-    @staticmethod
-    def _get_package_version(package_name):
-        try:
-            return metadata.version(package_name)
-        except metadata.PackageNotFoundError:
-            return "—"
-        except Exception:
-            return "?"
+        return (
+            True,
+            str(result["version"]),
+            result["origin"],
+        )
 
 
 class DependencyCheckDialog(QDialog):
@@ -428,38 +354,17 @@ class DependencyCheckDialog(QDialog):
 
         self.table.resizeRowsToContents()
 
-    @staticmethod
-    def _is_importable(module_name):
-        try:
-            importlib.import_module(module_name)
-            return True
-        except Exception:
-            return False
-
-    @staticmethod
-    def _get_package_version(package_name):
-        try:
-            return metadata.version(package_name)
-        except metadata.PackageNotFoundError:
-            return "—"
-        except Exception:
-            return "?"
 
 
 class DependencyInstallDialog(QDialog):
     """
     Janela de instalação das dependências externas do QMD.
 
-    A instalação somente é oferecida para bibliotecas externas
-    controladas pelo QMD. pystac/pystac-client não entram aqui,
-    pois atualmente são fornecidos pelo STAC API Browser.
+    A lista de pacotes instaláveis é definida centralmente em
+    core/dependencies.py. Uma biblioteca fornecida por outro plugin,
+    como pystac e pystac-client pelo STAC API Browser, não será
+    instalada novamente enquanto estiver disponível para o QGIS.
     """
-
-    INSTALLABLE = {
-        "shapely": "shapely",
-        "requests": "requests",
-        "lxml": "lxml",
-    }
 
     def __init__(self, dependencies, parent=None):
         super().__init__(parent)
@@ -519,20 +424,11 @@ class DependencyInstallDialog(QDialog):
         layout.addWidget(self.button_box)
 
     def _find_missing(self):
-        self.missing = []
-
-        # Verificação real das dependências externas instaláveis.
-        for dependency in self.dependencies:
-            package = dependency["package"]
-            import_name = dependency["import_name"]
-
-            if package not in self.INSTALLABLE:
-                continue
-
-            try:
-                importlib.import_module(import_name)
-            except Exception:
-                self.missing.append(package)
+        missing = missing_installable_dependencies()
+        self.missing = [
+            result["package"]
+            for result in missing
+        ]
 
         if self.missing:
             python_exe = self._python_executable()
@@ -540,6 +436,13 @@ class DependencyInstallDialog(QDialog):
             self.message.setText(
                 "Faltam instalar as seguintes bibliotecas de Python:"
             )
+
+            # Em Linux, especialmente em Ubuntu/Debian, o Python do
+            # sistema pode ser marcado como EXTERNALLY-MANAGED (PEP 668).
+            # Nesse caso, não tentamos contornar a proteção com pip.
+            if sys.platform.startswith("linux"):
+                self._show_linux_install_instructions()
+                return
 
             self.list_label.setText(
                 "<b>" + "<br>".join(
@@ -558,38 +461,111 @@ class DependencyInstallDialog(QDialog):
                 "estão disponíveis."
             )
 
+            # self.list_label.setText(
+            #     "Nenhuma instalação é necessária neste momento.<br><br>"
+            #     "<b>pystac</b> e <b>pystac-client</b> não são "
+            #     "alterados por esta janela, pois atualmente são "
+            #     "fornecidos pelo STAC API Browser."
+            # )
+
             self.list_label.setText(
-                "Nenhuma instalação é necessária neste momento.<br><br>"
-                "<b>pystac</b> e <b>pystac-client</b> não são "
-                "alterados por esta janela, pois atualmente são "
-                "fornecidos pelo STAC API Browser."
+                "Nenhuma instalação é necessária neste momento."
             )
 
             self.yes_button.setEnabled(False)
             self.no_button.setText("Fechar")
 
+    def _show_linux_install_instructions(self):
+        """Mostra como instalar dependências em Linux."""
+        apt_available = shutil.which("apt") is not None
+
+        self.yes_button.setEnabled(False)
+        self.no_button.setText("Fechar")
+
+        packages = "<br>".join(
+            f"• <b>{package}</b>" for package in self.missing
+        )
+
+        if apt_available:
+            apt_commands = "<br>".join(
+                f"<code>sudo apt install python3-{package}</code>"
+                for package in self.missing
+            )
+
+            self.list_label.setText(
+                "<b>As seguintes bibliotecas não estão instaladas:</b><br><br>"
+                f"{packages}<br><br>"
+                "Este ambiente Linux utiliza um Python gerenciado pelo "
+                "sistema operacional.<br>"
+                "Por segurança, o QMD Tools Explorer não tentará instalar "
+                "essas bibliotecas usando pip.<br><br>"
+                "<b>Instale as dependências pelo gerenciador de pacotes "
+                "do sistema:</b><br><br>"
+                f"{apt_commands}<br><br>"
+                "Depois da instalação, volte ao QGIS e clique em "
+                "<b>Verificar dependências</b>."
+            )
+        else:
+            self.list_label.setText(
+                "<b>As seguintes bibliotecas não estão instaladas:</b><br><br>"
+                f"{packages}<br><br>"
+                "Este ambiente Linux utiliza um Python gerenciado pelo "
+                "sistema operacional.<br>"
+                "Por segurança, o QMD Tools Explorer não tentará instalar "
+                "essas bibliotecas usando pip.<br><br>"
+                "Instale as dependências usando o gerenciador de pacotes "
+                "da sua distribuição Linux e depois clique em "
+                "<b>Verificar dependências</b>."
+            )
+
+        self.output.hide()
+
+
     def _python_executable(self):
         """
-        Localiza um python.exe real na instalação do QGIS.
+        Localiza o interpretador Python usado pelo QGIS.
 
-        sys.executable pode ser qgis-ltr-bin.exe no Windows.
+        No Windows, procura o python.exe distribuído com o QGIS
+        quando sys.executable aponta para o executável do QGIS.
+
+        No Linux/macOS, prioriza sys.executable e os caminhos
+        associados ao ambiente Python atual.
         """
         current = Path(sys.executable)
 
-        if current.name.lower() == "python.exe":
+        # Caso o próprio executável já seja Python.
+        if current.name.lower() in {
+            "python.exe",
+            "python",
+            "python3",
+        }:
             return str(current)
 
         candidates = []
 
-        # .../QGIS 3.40.6/bin/qgis-ltr-bin.exe
-        # -> .../QGIS 3.40.6/apps/Python312/python.exe
-        for parent in current.parents:
-            apps_dir = parent / "apps"
+        if sys.platform.startswith("win"):
+            # .../QGIS 3.40.6/bin/qgis-ltr-bin.exe
+            # -> .../QGIS 3.40.6/apps/Python312/python.exe
+            for parent in current.parents:
+                apps_dir = parent / "apps"
 
-            if apps_dir.exists():
-                candidates.extend(
-                    apps_dir.glob("Python*/python.exe")
-                )
+                if apps_dir.exists():
+                    candidates.extend(
+                        apps_dir.glob("Python*/python.exe")
+                    )
+        else:
+            # Em instalações Linux/macOS, o Python do processo
+            # normalmente já é o interpretador correto do QGIS.
+            if current.exists():
+                candidates.append(current)
+
+            prefix_python = Path(sys.prefix) / "bin" / "python3"
+            if prefix_python.exists():
+                candidates.append(prefix_python)
+
+            prefix_python_alt = Path(sys.prefix) / "bin" / "python"
+            if prefix_python_alt.exists():
+                candidates.append(prefix_python_alt)
 
         for candidate in candidates:
             if candidate.exists():
@@ -602,9 +578,10 @@ class DependencyInstallDialog(QDialog):
             return
 
         python_exe = self._python_executable()
+        self.install_python = python_exe
 
-        # No Windows/QGIS, evitamos gravar em Program Files.
-        # O pip --user instala no diretório de usuário.
+        # A instalação usa o diretório de usuário e evita alterar
+        # diretamente a instalação do QGIS.
         if not getattr(site, "ENABLE_USER_SITE", True):
             self.message.setText(
                 "<b>Não foi possível iniciar a instalação.</b>"
@@ -614,7 +591,7 @@ class DependencyInstallDialog(QDialog):
                 "O ambiente Python do QGIS está com a instalação "
                 "no diretório do usuário desabilitada.<br><br>"
                 "Por segurança, o QMD Tools Explorer não tentará "
-                "gravar diretamente em Program Files."
+                "alterar diretamente a instalação do QGIS."
             )
 
             self.yes_button.setEnabled(False)
@@ -734,17 +711,94 @@ class DependencyInstallDialog(QDialog):
         # O subprocesso usa o mesmo Python que executou o pip.
         # Isso evita confundir o resultado com uma cópia fornecida
         # por outro plugin dentro do processo do QGIS.
-        packages = " ".join(
-            package.replace('"', '\\"')
-            for package in self.missing
+        packages = repr(self.missing)
+
+        script = (
+            "import importlib\\n"
+            "from importlib import metadata\\n"
+            f"packages = {packages}\\n"
+            "for package in packages:\\n"
+            "    if package == 'pystac-client':\\n"
+            "        module_name = 'pystac_client'\\n"
+            "    else:\\n"
+            "        module_name = package.replace('-', '_')\\n"
+            "    try:\\n"
+            "        module = importlib.import_module(module_name)\\n"
+            "        version = getattr(module, '__version__', None)\\n"
+            "        if not version:\\n"
+            "            try:\\n"
+            "                version = metadata.version(package)\\n"
+            "            except Exception:\\n"
+            "                version = 'desconhecida'\\n"
+            "        print(f'{package}: OK - {version}')\\n"
+            "    except Exception as exc:\\n"
+            "        print(f'{package}: ERRO - {exc}')\\n"
         )
 
-        script = r
+        self.verification_process = QProcess(self)
+        self.verification_process.setProgram(python_exe)
+        self.verification_process.setArguments([
+            "-c",
+            script,
+        ])
+        self.verification_process.setProcessChannelMode(
+            QProcess.MergedChannels
+        )
+        self.verification_process.readyReadStandardOutput.connect(
+            self._read_verification_output
+        )
+        self.verification_process.finished.connect(
+            self._verification_finished
+        )
+        self.verification_process.start()
+
+    def _read_verification_output(self):
+        if not self.verification_process:
+            return
+
+        data = self.verification_process.readAllStandardOutput()
+        output = bytes(data).decode(
+            "utf-8",
+            errors="replace",
+        )
+
+        self.output.setText(
+            output[-5000:].replace("\n", "<br>")
+        )
+
+    def _verification_finished(self, exit_code, exit_status):
+        if self.verification_process is not None:
+            self.verification_process.deleteLater()
+            self.verification_process = None
+
+        if exit_status == QProcess.CrashExit or exit_code != 0:
+            self.message.setText(
+                "<b>A instalação foi concluída, mas a verificação "
+                "não pôde ser finalizada.</b>"
+            )
+            self.no_button.setText("Fechar")
+            return
+
+        self.message.setText(
+            "<b>Instalação e verificação concluídas.</b>"
+        )
+        self.list_label.setText(
+            "As bibliotecas foram instaladas no ambiente do usuário. "
+            "Feche e reabra o QGIS se alguma biblioteca ainda não "
+            "aparecer como disponível."
+        )
+        self.no_button.setText("Fechar")
+
     def closeEvent(self, event):
         if self.process is not None:
             self.process.kill()
             self.process.waitForFinished(2000)
             self.process = None
+
+        if self.verification_process is not None:
+            self.verification_process.kill()
+            self.verification_process.waitForFinished(2000)
+            self.verification_process = None
 
         event.accept()
 
