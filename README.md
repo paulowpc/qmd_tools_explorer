@@ -130,32 +130,27 @@ O QMD Tools Explorer utiliza algumas bibliotecas Python adicionais:
 - `requests`;
 - `lxml`.
 
-As bibliotecas `pystac` e `pystac-client` podem ser disponibilizadas pelo
-plugin **STAC API Browser**, caso ele esteja instalado no ambiente QGIS.
+As bibliotecas `pystac` e `pystac-client` podem ser disponibilizadas pelo plugin **STAC API Browser**, caso ele esteja instalado no ambiente QGIS.
 
-O QMD Tools Explorer possui uma ferramenta de **verificação de dependências**
-que permite verificar quais bibliotecas estão disponíveis no ambiente Python
-do QGIS.
+O QMD Tools Explorer possui uma ferramenta de **verificação de dependências** que permite verificar quais bibliotecas estão disponíveis no ambiente Python do QGIS.
 
-Caso alguma dependência esteja ausente, o plugin informa ao usuário quais
-bibliotecas precisam ser instaladas.
+Caso alguma dependência esteja ausente, o plugin informa ao usuário quais bibliotecas precisam ser instaladas.
 
 ### Instalação das dependências
 
-No **Windows**, quando uma dependência estiver ausente, o QMD Tools Explorer
-pode utilizar o `pip` para realizar a instalação no ambiente do usuário.
+No **Windows**, quando uma dependência estiver ausente, o QMD Tools Explorer pode utilizar o `pip` para realizar a instalação no ambiente do usuário.
 
-No **Linux**, algumas distribuições utilizam um ambiente Python gerenciado
-pelo sistema operacional. Nesses casos, o QMD Tools Explorer não modifica
-diretamente esse ambiente utilizando `pip`.
+No **Linux**, algumas distribuições utilizam um ambiente Python gerenciado pelo sistema operacional. Nesses casos, o QMD Tools Explorer não modifica diretamente esse ambiente utilizando `pip`.
 
-Quando uma dependência estiver ausente, o plugin orientará o usuário sobre
-a instalação utilizando o gerenciador de pacotes do sistema.
+Quando uma dependência estiver ausente, o plugin orientará o usuário sobre a instalação utilizando o gerenciador de pacotes do sistema.
 
 Por exemplo, em sistemas baseados em Ubuntu/Debian:
 
 ```bash
 sudo apt install python3-shapely
+```
+
+Após instalar a dependência, volte ao QGIS e clique em **Verificar dependências** na aba **Sistema** do QMD Tools Explorer.
 
 ---
 
@@ -222,15 +217,17 @@ Consulte o arquivo [`LICENSE`](LICENSE) para obter os termos completos da licen�
 
 ### 0.1.2 — 2026-09-22
 
-- Primeira versão do QMD Tools Explorer;
-- Pesquisa de imagens utilizando STAC API;
-- Integração com produtos do Brazil Data Cube;
-- Suporte a produtos Sentinel-2;
-- Suporte a produtos Landsat 8 e 9;
-- Suporte a produtos CBERS-4 e CBERS-4A;
-- Suporte a produtos Amazônia-1;
-- Pesquisa por Tile e Órbita/Ponto;
-- Pesquisa utilizando a extensão atual do mapa;
-- Consulta de focos de calor;
-- Filtros temporais e espaciais para focos de calor;
-- Camadas de referência para apoio à análise espacial.
+- Melhorias no gerenciamento das dependências Python;
+- Verificação centralizada das dependências do plugin;
+- Melhor compatibilidade com ambientes Linux;
+- Orientação para instalação de dependências por meio do gerenciador de pacotes do sistema em ambientes Linux;
+- Melhorias no carregamento dos módulos quando alguma dependência está ausente.
+
+### 0.1.1 — 2026-09-21
+
+- Correções relacionadas à validação de segurança do plugin;
+- Melhorias na compatibilidade e estabilidade.
+
+### 0.1.0 — 2026-09-21
+
+- Primeira versão pública do QMD Tools Explorer.
