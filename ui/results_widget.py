@@ -4,7 +4,7 @@ from io import BytesIO
 from qgis.PyQt.QtGui import QFont
 
 import requests
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageDraw, ImageEnhance
 
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtGui import QImage, QPixmap
@@ -111,14 +111,14 @@ class ResultsWidget(QWidget):
 
         self.table.setHorizontalHeaderLabels([
             "",                    # 0
-            "Data",                # 1
-            "Tile",                # 2
-            "ROI (%)",             # 3
-            "Nuvem (%)",           # 4
-            "Satélite",            # 5
-            "Sensor",              # 6
-            "Composição",          # 7
-            "Thumbnail",           # 8
+            "Thumbnail",           # 1
+            "Data",                # 2
+            "Tile",                # 3
+            "ROI (%)",             # 4
+            "Nuvem (%)",           # 5
+            "Satélite",            # 6
+            "Sensor",              # 7
+            "Composição",          # 8
             "Cena",                # 9
         ])
 
@@ -198,45 +198,51 @@ class ResultsWidget(QWidget):
             32,
         )
 
+        # Thumbnail / botão de visualização
         self.table.setColumnWidth(
             1,
-            80,
+            72,
         )
 
         self.table.setColumnWidth(
             2,
-            80,
+            82,
         )
 
         self.table.setColumnWidth(
             3,
-            50,
-        )
-
-        self.table.setColumnWidth(
-            4,
             80,
         )
 
         self.table.setColumnWidth(
+            4,
+            55,
+        )
+
+        self.table.setColumnWidth(
             5,
-            70,
+            75,
         )
 
         self.table.setColumnWidth(
             6,
-            115,
+            100,
         )
 
         self.table.setColumnWidth(
             7,
+            55,
+        )
+
+        self.table.setColumnWidth(
+            8,
             115,
         )
 
         # Largura da coluna Cena
         self.table.setColumnWidth(
             9,
-            88,
+            160,
         )
 
         # -----------------------------------------------------
@@ -851,7 +857,7 @@ class ResultsWidget(QWidget):
 
             self.table.setItem(
                 row,
-                1,
+                2,
                 date_item,
             )
 
@@ -869,7 +875,7 @@ class ResultsWidget(QWidget):
 
             self.table.setItem(
                 row,
-                2,
+                3,
                 tile_item,
             )
 
@@ -901,7 +907,7 @@ class ResultsWidget(QWidget):
 
             self.table.setItem(
                 row,
-                3,
+                4,
                 coverage_item,
             )
 
@@ -919,7 +925,7 @@ class ResultsWidget(QWidget):
 
             self.table.setItem(
                 row,
-                4,
+                5,
                 cloud_item,
             )
 
@@ -933,7 +939,7 @@ class ResultsWidget(QWidget):
 
             self.table.setItem(
                 row,
-                5,
+                6,
                 satellite_item,
             )
 
@@ -951,7 +957,7 @@ class ResultsWidget(QWidget):
 
             self.table.setItem(
                 row,
-                6,
+                7,
                 sensor_item,
             )
 
@@ -965,12 +971,12 @@ class ResultsWidget(QWidget):
 
             self.table.setCellWidget(
                 row,
-                7,
+                8,
                 combo,
             )
 
             # -----------------------------------------------------
-            # THUMBNAIL
+            # THUMBNAIL / VISUALIZAÇÃO
             # -----------------------------------------------------
 
             thumb = item.assets.get(
@@ -989,7 +995,16 @@ class ResultsWidget(QWidget):
             ):
 
                 button = QPushButton(
-                    "Visualizar"
+                    "👁"
+                )
+
+                button.setToolTip(
+                    "Visualizar thumbnail"
+                )
+
+                button.setFixedSize(
+                    48,
+                    28,
                 )
 
                 button.clicked.connect(
@@ -997,23 +1012,52 @@ class ResultsWidget(QWidget):
                         href,
                         collection,
                         date,
+                        item,
                     )
+                )
+
+                # Centraliza o botão dentro da célula.
+                thumbnail_container = QWidget()
+
+                thumbnail_layout = QHBoxLayout(
+                    thumbnail_container
+                )
+
+                thumbnail_layout.setContentsMargins(
+                    0,
+                    0,
+                    0,
+                    0,
+                )
+
+                thumbnail_layout.setAlignment(
+                    Qt.AlignCenter
+                )
+
+                thumbnail_layout.addWidget(
+                    button
                 )
 
                 self.table.setCellWidget(
                     row,
-                    8,
-                    button,
+                    1,
+                    thumbnail_container,
                 )
 
             else:
 
+                na_item = QTableWidgetItem(
+                    "N/A"
+                )
+
+                na_item.setTextAlignment(
+                    Qt.AlignCenter
+                )
+
                 self.table.setItem(
                     row,
-                    8,
-                    QTableWidgetItem(
-                        "N/A"
-                    ),
+                    1,
+                    na_item,
                 )
 
             scene_item = QTableWidgetItem(
@@ -1070,6 +1114,7 @@ class ResultsWidget(QWidget):
         url,
         collection,
         date,
+        item,
     ):
 
         def cb():
@@ -1087,7 +1132,7 @@ class ResultsWidget(QWidget):
                     BytesIO(
                         r.content
                     )
-                )
+                ).convert("RGBA")
 
                 if collection == "Landsat 2":
 
@@ -1117,6 +1162,143 @@ class ResultsWidget(QWidget):
                         )
                     )
 
+                # -------------------------------------------------
+                # TESTE: DESENHA A REGIÃO DE INTERESSE NO THUMBNAIL
+                # -------------------------------------------------
+
+                roi = self._get_roi_extent_wgs84()
+                scene_bbox = getattr(item, "bbox", None)
+
+                if roi is not None and scene_bbox:
+                    try:
+
+                        scene_xmin = float(scene_bbox[0])
+                        scene_ymin = float(scene_bbox[1])
+                        scene_xmax = float(scene_bbox[2])
+                        scene_ymax = float(scene_bbox[3])
+
+                        roi_xmin = float(roi.xMinimum())
+                        roi_ymin = float(roi.yMinimum())
+                        roi_xmax = float(roi.xMaximum())
+                        roi_ymax = float(roi.yMaximum())
+
+                        scene_width = scene_xmax - scene_xmin
+                        scene_height = scene_ymax - scene_ymin
+
+                        if scene_width > 0 and scene_height > 0:
+
+                            img_width, img_height = img.size
+
+                            # Converte coordenadas geográficas para pixels.
+                            # O eixo Y da imagem cresce de cima para baixo.
+                            x1 = (
+                                (roi_xmin - scene_xmin)
+                                / scene_width
+                                * img_width
+                            )
+
+                            x2 = (
+                                (roi_xmax - scene_xmin)
+                                / scene_width
+                                * img_width
+                            )
+
+                            y1 = (
+                                (scene_ymax - roi_ymax)
+                                / scene_height
+                                * img_height
+                            )
+
+                            y2 = (
+                                (scene_ymax - roi_ymin)
+                                / scene_height
+                                * img_height
+                            )
+
+                            # Mantém somente a parte da ROI
+                            # que intersecta o thumbnail.
+                            x1 = max(0, min(img_width, x1))
+                            x2 = max(0, min(img_width, x2))
+                            y1 = max(0, min(img_height, y1))
+                            y2 = max(0, min(img_height, y2))
+
+                            if x1 < x2 and y1 < y2:
+
+                                overlay = Image.new(
+                                    "RGBA",
+                                    img.size,
+                                    (255, 255, 255, 0),
+                                )
+
+                                draw = ImageDraw.Draw(
+                                    overlay
+                                )
+
+                                draw.rectangle(
+                                    [
+                                        int(x1),
+                                        int(y1),
+                                        int(x2),
+                                        int(y2),
+                                    ],
+                                    fill=(255, 0, 0, 55),
+                                    outline=(255, 0, 0, 255),
+                                    width=max(
+                                        2,
+                                        int(
+                                            min(
+                                                img_width,
+                                                img_height,
+                                            )
+                                            * 0.006
+                                        ),
+                                    ),
+                                )
+
+                                img = Image.alpha_composite(
+                                    img,
+                                    overlay,
+                                )
+
+                                log_message(
+                                    "[THUMBNAIL] ROI desenhada no thumbnail: "
+                                    f"{roi_xmin:.8f}, "
+                                    f"{roi_ymin:.8f}, "
+                                    f"{roi_xmax:.8f}, "
+                                    f"{roi_ymax:.8f}"
+                                )
+
+                            else:
+
+                                log_message(
+                                    "[THUMBNAIL] ROI não intersecta "
+                                    "o BBOX da cena."
+                                )
+
+                        else:
+
+                            log_message(
+                                "[THUMBNAIL] BBOX da cena inválido."
+                            )
+
+                    except Exception as e:
+
+                        log_message(
+                            f"[THUMBNAIL] Erro ao desenhar ROI: {e}"
+                        )
+
+                else:
+
+                    if roi is None:
+                        log_message(
+                            "[THUMBNAIL] Nenhuma ROI disponível."
+                        )
+
+                    if not scene_bbox:
+                        log_message(
+                            "[THUMBNAIL] Cena sem BBOX STAC."
+                        )
+
                 q = QImage.fromData(
                     BytesIO(
                         self._png(
@@ -1138,8 +1320,8 @@ class ResultsWidget(QWidget):
                 )
 
                 dlg.resize(
-                    550,
-                    550,
+                    550, # 550
+                    550, # 550
                 )
 
                 lay = QVBoxLayout(
@@ -1154,8 +1336,8 @@ class ResultsWidget(QWidget):
 
                 lab.setPixmap(
                     pix.scaled(
-                        800,
-                        800,
+                        550,
+                        550,
                         Qt.KeepAspectRatio,
                         Qt.SmoothTransformation,
                     )
@@ -1407,7 +1589,7 @@ class ResultsWidget(QWidget):
 
             combo = self.table.cellWidget(
                 row,
-                7,
+                8,
             )
 
             composite_name = (

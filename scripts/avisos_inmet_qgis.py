@@ -33,6 +33,7 @@ XML_PARSER = etree.XMLParser(
     resolve_entities=False,
     no_network=True,
     load_dtd=False,
+    remove_comments=True,
 )
 
 # ============================================================
@@ -45,7 +46,7 @@ RSS_URL = "https://apiprevmet3.inmet.gov.br/avisos/rss"
 # ["55660"] = testar somente um aviso.
 INMET_IDS = []
 
-# hoje   = avisos cuja validade cruza o dia atual.
+# hoje   = avisos cujo início (onset) ocorre no dia atual.
 # ativos = somente avisos válidos neste momento.
 # todos  = sem filtro temporal.
 FILTRO_DATA = "hoje"
@@ -88,8 +89,12 @@ OVERWRITE_GPKG = True
 # ============================================================
 
 def strip_namespace(tag):
+    if not isinstance(tag, str):
+        return ""
+
     if "}" in tag:
         return tag.split("}", 1)[1]
+
     return tag
 
 
@@ -270,6 +275,27 @@ def aviso_ativo_agora(
     return True
 
 
+def aviso_inicia_hoje(onset):
+    """
+    Retorna True somente para avisos cujo início (onset)
+    ocorre na data atual.
+
+    O portal atual do INMET organiza os avisos por dia de
+    início. Por isso, um aviso iniciado no dia anterior, mesmo
+    que ainda seja válido durante parte do dia atual, não entra
+    no filtro "hoje".
+    """
+
+    inicio = datetime_local(
+        onset
+    )
+
+    if inicio is None:
+        return False
+
+    return inicio.date() == datetime.now().date()
+
+
 def passa_filtro_data(
     onset,
     expires
@@ -283,9 +309,8 @@ def passa_filtro_data(
             expires
         )
 
-    return aviso_cruza_hoje(
-        onset,
-        expires
+    return aviso_inicia_hoje(
+        onset
     )
 
 
