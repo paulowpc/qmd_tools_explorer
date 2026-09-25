@@ -6,7 +6,7 @@ description=QGIS plugin for exploring remote sensing imagery, STAC catalogs, Bra
 
 about=QMD Tools Explorer is a QGIS plugin developed to facilitate the search, visualization, and exploration of remote sensing imagery and geospatial data. The plugin allows users to query STAC catalogs, explore Brazil Data Cube products, access data related to fire monitoring, and visualize reference layers to support spatial analysis.
 
-version=0.1.2
+version=0.1.3
 
 qgisMinimumVersion=3.28
 
@@ -24,7 +24,7 @@ category=Web
 
 icon=icon.png
 
-experimental=True
+experimental=False
 
 deprecated=False
 
@@ -33,6 +33,7 @@ license=GPL-3.0-or-later
 tags=STAC, Brasil Data Cube, Brazil Data Cube, Sensoriamento Remoto, Queimadas, Incêndios, INPE, Geoprocessamento, Imagens de Satélite
 
 changelog:
-    0.1.2 (2026-09-22) - QGIS plugin validation Linux and Windows
+    0.1.3 (2026-09-25) - Improve INMET alerts and thumbnail display
+    0.1.2 (2026-09-22) - Improved dependency handling and Linux compatibility
     0.1.1 (2026-09-21) - Security fixes and improvements for QGIS plugin validation
     0.1.0 (2026-09-21) - Initial public release of QMD Tools Explorer

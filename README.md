@@ -215,6 +215,15 @@ Consulte o arquivo [`LICENSE`](LICENSE) para obter os termos completos da licen�
 
 ## 📝 Registro de alterações
 
+### 0.1.3 — 2026-09-25
+
+- Melhorias na visualização das thumbnails das cenas;
+- Inclusão da área de interesse (ROI) sobreposta às thumbnails;
+- Ajustes na organização e apresentação da tabela de resultados;
+- Melhorias na visualização do botão de thumbnail;
+- Correção na leitura e filtragem dos alertas meteorológicos do INMET;
+- Ajustes no processamento dos arquivos XML dos alertas do INMET.
+
 ### 0.1.2 — 2026-09-22
 
 - Melhorias no gerenciamento das dependências Python;
