@@ -2689,7 +2689,7 @@ class LayersWidget(QWidget):
                 if not self._inmet_task.isFinished():
                     return
             except Exception:
-                pass
+                return
 
         try:
             self._show_loading()
