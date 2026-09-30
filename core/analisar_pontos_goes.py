@@ -17,11 +17,29 @@ class AnalisadorPontosAtencaoGOES:
 
     O módulo recebe caminhos LOCAIS para os arquivos.
 
-    Classes prioritárias:
+    Classes disponíveis para análise:
+        - 1 até 35 repetições
+        - 36 até 71 repetições
         - 72 até 143 repetições
         - 144 até 288 repetições
+
+    A classe visual do evento é definida pela maior classe de
+    repetição encontrada, seguindo a prioridade:
+        144–288 -> vermelho
+        72–143  -> laranja
+        36–71   -> amarelo
+        1–35    -> verde
     """
 
+    CLASSES_DISPONIVEIS = (
+        "1 até 35 repetições",
+        "36 até 71 repetições",
+        "72 até 143 repetições",
+        "144 até 288 repetições",
+    )
+
+    # Mantém o comportamento anterior quando o analisador é usado
+    # diretamente sem informar classes.
     CLASSES_PRIORITARIAS = (
         "72 até 143 repetições",
         "144 até 288 repetições",
@@ -39,12 +57,27 @@ class AnalisadorPontosAtencaoGOES:
         self,
         goes_path,
         eventos_path,
-        iface=None
+        iface=None,
+        classes_goes=None
     ):
 
         self.goes_path = goes_path
         self.eventos_path = eventos_path
         self.iface = iface
+
+        if classes_goes is None:
+            classes_goes = self.CLASSES_PRIORITARIAS
+
+        self.classes_goes = tuple(
+            classe
+            for classe in classes_goes
+            if classe in self.CLASSES_DISPONIVEIS
+        )
+
+        if not self.classes_goes:
+            raise ValueError(
+                "Nenhuma classe GOES válida foi selecionada."
+            )
 
         self.goes_layers = []
         self.eventos_layer = None
@@ -71,7 +104,7 @@ class AnalisadorPontosAtencaoGOES:
             f"Arquivo GOES: {self.goes_path}"
         )
 
-        for classe in self.CLASSES_PRIORITARIAS:
+        for classe in self.classes_goes:
 
             uri = (
                 f"{self.goes_path}"
@@ -181,7 +214,7 @@ class AnalisadorPontosAtencaoGOES:
 
         return feature.id()
 
-    
+
 
     # =========================================================
     # ANALISAR
@@ -346,11 +379,10 @@ class AnalisadorPontosAtencaoGOES:
             and "288" in classe
             for classe in classes_texto
         ):
-
             return "vermelho"
 
         # -----------------------------------------------------
-        # SEGUNDA CLASSE: 72 até 143
+        # 72 até 143
         # -----------------------------------------------------
 
         if any(
@@ -358,12 +390,29 @@ class AnalisadorPontosAtencaoGOES:
             and "143" in classe
             for classe in classes_texto
         ):
-
             return "laranja"
 
         # -----------------------------------------------------
-        # SEM CLASSIFICAÇÃO
+        # 36 até 71
         # -----------------------------------------------------
+
+        if any(
+            "36" in classe
+            and "71" in classe
+            for classe in classes_texto
+        ):
+            return "amarelo"
+
+        # -----------------------------------------------------
+        # 1 até 35
+        # -----------------------------------------------------
+
+        if any(
+            "1" in classe
+            and "35" in classe
+            for classe in classes_texto
+        ):
+            return "verde"
 
         return None
 

@@ -44,6 +44,9 @@ from qgis.PyQt.QtWidgets import (
     QFormLayout,
     QDialog,
     QSizePolicy,
+    QComboBox,
+    QCheckBox,
+    QGridLayout,
 )
 
 from qgis.utils import iface
@@ -72,24 +75,119 @@ class AnaliseGoesWorker(QThread):
 
     def __init__(
         self,
-        goes_path,
-        eventos_path,
+        goes_config,
+        eventos_config,
+        plugin_dir,
+        classes_goes=None,
         parent=None
     ):
 
         super().__init__(parent)
 
-        self.goes_path = goes_path
-        self.eventos_path = eventos_path
+        self.goes_config = goes_config
+        self.eventos_config = eventos_config
+        self.plugin_dir = Path(plugin_dir)
+        self.classes_goes = classes_goes
+
+    def _cache_dir(self):
+
+        cache_dir = (
+            self.plugin_dir
+            / "data"
+            / "reference_layers_cache"
+        )
+
+        cache_dir.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        return cache_dir
+
+    def _get_local_file(self, layer_config):
+
+        cache_dir = self._cache_dir()
+
+        local_path = (
+            cache_dir
+            / layer_config["filename"]
+        )
+
+        force_download = layer_config.get(
+            "force_download",
+            False
+        )
+
+        if (
+            local_path.exists()
+            and not force_download
+        ):
+            return local_path
+
+        temp_path = local_path.with_suffix(
+            local_path.suffix + ".part"
+        )
+
+        url = layer_config["url"]
+        parsed_url = urlparse(url)
+
+        if parsed_url.scheme not in {"http", "https"}:
+            raise ValueError(
+                f"Esquema de URL não permitido: {parsed_url.scheme}"
+            )
+
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "QMD Tools Explorer"
+            }
+        )
+
+        try:
+
+            with urllib.request.urlopen(  # nosec B310
+                request,
+                timeout=120
+            ) as response:
+
+                with temp_path.open("wb") as output:
+                    shutil.copyfileobj(
+                        response,
+                        output
+                    )
+
+            temp_path.replace(local_path)
+            return local_path
+
+        except Exception:
+
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
+
+            raise
 
     def run(self):
 
         try:
 
+            # Download dos arquivos acontece dentro da thread,
+            # evitando bloquear a interface e a animação do spinner.
+            goes_path = self._get_local_file(
+                self.goes_config
+            )
+
+            eventos_path = self._get_local_file(
+                self.eventos_config
+            )
+
             analisador = AnalisadorPontosAtencaoGOES(
-                goes_path=str(self.goes_path),
-                eventos_path=str(self.eventos_path),
+                goes_path=str(goes_path),
+                eventos_path=str(eventos_path),
                 iface=iface,
+                classes_goes=self.classes_goes,
             )
 
             resultado = analisador.executar(
@@ -137,11 +235,13 @@ class AnalisarPontosGoesDialog(QWidget):
 
     def __init__(
         self,
-        parent=None
+        parent=None,
+        loading=None
     ):
 
         super().__init__(parent)
 
+        self.loading = loading
         self.resultado = None
         self.worker = None
         self.evento_selecionado = None
@@ -198,32 +298,88 @@ class AnalisarPontosGoesDialog(QWidget):
         )
 
         # --------------------------------------------------
-        # CLASSES ANALISADAS
+        # CONFIGURAÇÃO DA ANÁLISE GOES
         # --------------------------------------------------
 
-        classes_label = QLabel(
-            "Classes: 72–144 | 144–288 repetições"
+        configuracao_layout = QHBoxLayout()
+
+        versao_label = QLabel("Arquivo GOES:")
+
+        self.goes_version_combo = QComboBox()
+        self.goes_version_combo.addItem("Versão 1", "pontos_atencao_48h")
+        self.goes_version_combo.addItem("Versão 2 - ABI", "pontos_atencao_abi_48h")
+
+        configuracao_layout.addWidget(versao_label)
+        configuracao_layout.addWidget(self.goes_version_combo)
+        configuracao_layout.addStretch()
+
+        layout.addLayout(configuracao_layout)
+
+        # classes_group = QGroupBox("Classes de repetições")
+        # classes_layout = QHBoxLayout(classes_group)
+
+        # self.class_checks = {}
+
+        # classes = (
+        #     "1 até 35 repetições",
+        #     "36 até 71 repetições",
+        #     "72 até 143 repetições",
+        #     "144 até 288 repetições",
+        # )
+
+        # for classe in classes:
+        #     check = QCheckBox(classe)
+        #     check.setChecked(classe in (
+        #         "72 até 143 repetições",
+        #         "144 até 288 repetições",
+        #     ))
+        #     self.class_checks[classe] = check
+        #     classes_layout.addWidget(check)
+
+        # classes_layout.addStretch()
+        # layout.addWidget(classes_group)
+
+        classes_group = QGroupBox(
+            "Classes de repetições"
         )
 
-        classes_label.setAlignment(
-            Qt.AlignCenter
+        classes_layout = QGridLayout(
+            classes_group
         )
 
-        classes_label.setFixedHeight(
-            22
+        self.class_checks = {}
+
+        classes = (
+            "1 até 35 repetições",
+            "36 até 71 repetições",
+            "72 até 143 repetições",
+            "144 até 288 repetições",
         )
 
-        classes_label.setStyleSheet(
-            """
-            QLabel {
-                color: #555555;
-                padding: 0px;
-            }
-            """
-        )
+        for i, classe in enumerate(classes):
+
+            check = QCheckBox(classe)
+
+            check.setChecked(
+                classe in (
+                    "72 até 143 repetições",
+                    "144 até 288 repetições",
+                )
+            )
+
+            self.class_checks[classe] = check
+
+            row = i // 2
+            column = i % 2
+
+            classes_layout.addWidget(
+                check,
+                row,
+                column
+            )
 
         layout.addWidget(
-            classes_label
+            classes_group
         )
 
         # --------------------------------------------------
@@ -337,16 +493,16 @@ class AnalisarPontosGoesDialog(QWidget):
         )
 
         self.table.setHorizontalHeaderLabels([
-            "Selecionar",
+            " ",
+            "Info",
             "Status",
             "Evento",
-            "Região / Área",
+            "Região/Área",
             "Município",
             "UF",
             "Frentes",
             "Pontos GOES",
             "Classes",
-            "Info",
         ])
 
         # --------------------------------------------------
@@ -395,18 +551,18 @@ class AnalisarPontosGoesDialog(QWidget):
             True
         )
         
-        self.table.setColumnWidth(0, 75)   # Selecionar
-        self.table.setColumnWidth(1, 55)   # Status
-        self.table.setColumnWidth(2, 80)   # Evento
-        self.table.setColumnWidth(3, 180)  # Região / Área
-        self.table.setColumnWidth(4, 130)  # Município
-        self.table.setColumnWidth(5, 40)   # UF
-        self.table.setColumnWidth(6, 60)   # Frentes
-        self.table.setColumnWidth(7, 85)   # Pontos GOES
-        self.table.setColumnWidth(8, 150)  # Classes
-        self.table.setColumnWidth(9, 58)   # Info
+        self.table.setColumnWidth(0, 15)   # Selecionar
+        self.table.setColumnWidth(1, 58)   # Info
+        self.table.setColumnWidth(2, 55)   # Status
+        self.table.setColumnWidth(3, 70)   # Evento
+        self.table.setColumnWidth(4, 180)  # Região / Área
+        self.table.setColumnWidth(5, 130)  # Município
+        self.table.setColumnWidth(6, 40)   # UF
+        self.table.setColumnWidth(7, 60)   # Frentes
+        self.table.setColumnWidth(8, 85)   # Pontos GOES
+        self.table.setColumnWidth(9, 150)  # Classes
 
-    
+
         # --------------------------------------------------
         # ALTURA DA TABELA
         # --------------------------------------------------
@@ -503,25 +659,25 @@ class AnalisarPontosGoesDialog(QWidget):
             self.adicionar_eventos_selecionados_mapa
         )
 
-        self.areas_ciman_btn = QPushButton(
-            "Analisar Áreas CIMAN →"
-        )
-
-        self.areas_ciman_btn.setEnabled(
-            False
-        )
-
-        self.areas_ciman_btn.clicked.connect(
-            self.abrir_analise_areas_ciman
-        )
+        # self.areas_ciman_btn = QPushButton(
+        #     "Analisar Áreas CIMAN →"
+        # )
+        #
+        # self.areas_ciman_btn.setEnabled(
+        #     False
+        # )
+        #
+        # self.areas_ciman_btn.clicked.connect(
+        #     self.abrir_analise_areas_ciman
+        # )
 
         bottom_layout.addWidget(
             self.add_map_btn
         )
 
-        bottom_layout.addWidget(
-            self.areas_ciman_btn
-        )
+        # bottom_layout.addWidget(
+        #     self.areas_ciman_btn
+        # )
 
         layout.addLayout(
             bottom_layout
@@ -938,9 +1094,9 @@ class AnalisarPontosGoesDialog(QWidget):
 
         try:
 
-            self.areas_ciman_btn.setEnabled(
-                False
-            )
+            # self.areas_ciman_btn.setEnabled(
+            #     False
+            # )
 
             QApplication.setOverrideCursor(
                 Qt.WaitCursor
@@ -1066,9 +1222,21 @@ class AnalisarPontosGoesDialog(QWidget):
 
             QApplication.restoreOverrideCursor()
 
-            self.areas_ciman_btn.setEnabled(
-                True
-            )
+            # self.areas_ciman_btn.setEnabled(
+            #     True
+            # )
+
+    # ======================================================
+    # CONFIGURAÇÃO DA ANÁLISE GOES
+    # ======================================================
+
+    def _obter_classes_goes_selecionadas(self):
+
+        return [
+            classe
+            for classe, check in self.class_checks.items()
+            if check.isChecked()
+        ]
 
     # ======================================================
     # ANALISAR PONTOS GOES
@@ -1078,43 +1246,38 @@ class AnalisarPontosGoesDialog(QWidget):
 
         try:
 
-            self.analisar_btn.setEnabled(
-                False
-            )
+            classes_goes = self._obter_classes_goes_selecionadas()
 
-            self.add_map_btn.setEnabled(
-                False
-            )
+            if not classes_goes:
+                QMessageBox.information(
+                    self,
+                    "QMD Tools Explorer",
+                    "Selecione pelo menos uma classe de repetições."
+                )
+                return
 
-            self.areas_ciman_btn.setEnabled(
-                False
-            )
+            self.analisar_btn.setEnabled(False)
+            self.add_map_btn.setEnabled(False)
 
             self.evento_selecionado = None
-
             self._limpar_informacoes_evento()
+            self.table.setRowCount(0)
 
-            self.table.setRowCount(
-                0
-            )
-
-            self.progress.setVisible(
-                True
-            )
-
-            self.progress.setRange(
-                0,
-                0
-            )
+            self.progress.setVisible(True)
+            self.progress.setRange(0, 0)
 
             self.summary_label.setText(
                 "Preparando arquivos GOES e Eventos Ativos..."
             )
 
-            QApplication.processEvents()
+            # Mostra o spinner antes de iniciar qualquer operação
+            # que possa consumir tempo.
+            if self.loading:
+                self.loading.show()
+                QApplication.processEvents()
 
             # --------------------------------------------------
-            # CONFIG
+            # CONFIGURAÇÃO
             # --------------------------------------------------
 
             config = self._load_config()
@@ -1125,14 +1288,15 @@ class AnalisarPontosGoesDialog(QWidget):
             )
 
             if not monitoramento:
-
                 raise Exception(
                     "Grupo 'monitoramento_goes' não encontrado "
                     "no reference_layers.json."
                 )
 
+            goes_config_key = self.goes_version_combo.currentData()
+
             goes_config = monitoramento.get(
-                "pontos_atencao_48h"
+                goes_config_key
             )
 
             eventos_config = monitoramento.get(
@@ -1140,65 +1304,29 @@ class AnalisarPontosGoesDialog(QWidget):
             )
 
             if goes_config is None:
-
                 raise Exception(
-                    "Configuração 'pontos_atencao_48h' "
+                    f"Configuração '{goes_config_key}' "
                     "não encontrada."
                 )
 
             if eventos_config is None:
-
                 raise Exception(
                     "Configuração 'eventos_ativos' "
                     "não encontrada."
                 )
 
-            # --------------------------------------------------
-            # GOES
-            # --------------------------------------------------
-
             self.summary_label.setText(
-                "Obtendo Pontos de Atenção GOES..."
+                "Obtendo Pontos de Atenção GOES e Eventos Ativos..."
             )
-
             QApplication.processEvents()
 
-            goes_path = self._get_local_file(
-                goes_config
-            )
-
-            self.goes_path = goes_path
-
-            # --------------------------------------------------
-            # EVENTOS
-            # --------------------------------------------------
-
-            self.summary_label.setText(
-                "Obtendo Eventos Ativos..."
-            )
-
-            QApplication.processEvents()
-
-            eventos_path = self._get_local_file(
-                eventos_config
-            )
-
-            self.eventos_path = eventos_path
-
-            # --------------------------------------------------
-            # ANÁLISE
-            # --------------------------------------------------
-
-            self.summary_label.setText(
-                "Analisando interseções entre "
-                "Pontos GOES e Eventos Ativos..."
-            )
-
-            QApplication.processEvents()
-
+            # Toda a parte demorada — downloads e análise —
+            # acontece dentro do QThread.
             self.worker = AnaliseGoesWorker(
-                goes_path,
-                eventos_path,
+                goes_config,
+                eventos_config,
+                self._plugin_dir(),
+                classes_goes,
                 self
             )
 
@@ -1226,6 +1354,9 @@ class AnalisarPontosGoesDialog(QWidget):
         self,
         resultado
     ):
+
+        if self.loading:
+            self.loading.hide()
 
         self.resultado = resultado
 
@@ -1272,6 +1403,9 @@ class AnalisarPontosGoesDialog(QWidget):
         mensagem
     ):
 
+        if self.loading:
+            self.loading.hide()
+
         self.progress.setVisible(
             False
         )
@@ -1298,7 +1432,7 @@ class AnalisarPontosGoesDialog(QWidget):
         self,
         resultados
     ):
-        
+
         # ======================================================
         # GUARDAR RESULTADOS DA ANÁLISE GOES
         # ======================================================
@@ -1405,6 +1539,7 @@ class AnalisarPontosGoesDialog(QWidget):
                 Qt.AlignCenter
             )
 
+            # Coluna 0 = Selecionar
             self.table.setItem(
                 row,
                 0,
@@ -1412,83 +1547,9 @@ class AnalisarPontosGoesDialog(QWidget):
             )
 
             # --------------------------------------------------
-            # STATUS VISUAL
-            # --------------------------------------------------
-
-            item_status = QTableWidgetItem()
-
-            if "144" in classes and "288" in classes:
-                item_status.setText("🔴")
-
-            elif "72" in classes and "143" in classes:
-                item_status.setText("🟠")
-
-            else:
-                item_status.setText("")
-
-            item_status.setData(
-                Qt.UserRole,
-                id_evento
-            )
-
-            item_status.setTextAlignment(
-                Qt.AlignCenter
-            )
-
-            self.table.setItem(
-                row,
-                1,
-                item_status
-            )
-
-            # --------------------------------------------------
-            # DEMAIS COLUNAS
-            # --------------------------------------------------
-
-            valores = [
-                str(id_evento),
-                self._formatar_texto(regiao),
-                self._formatar_texto(municipio),
-                self._formatar_texto(estado),
-                self._formatar_texto(qtd_frente),
-                str(qtd_pontos),
-                classes,
-            ]
-
-            for column, value in enumerate(
-                valores,
-                start=2
-            ):
-
-                item = QTableWidgetItem(
-                    value
-                )
-
-                item.setData(
-                    Qt.UserRole,
-                    id_evento
-                )
-
-                if column in (
-                    2,
-                    5,
-                    6,
-                    7,
-                ):
-
-                    item.setTextAlignment(
-                        Qt.AlignCenter
-                    )
-
-                self.table.setItem(
-                    row,
-                    column,
-                    item
-                )
-
-            # --------------------------------------------------
             # BOTÃO INFO
             # --------------------------------------------------
+
             info_btn = QPushButton(
                 "Info"
             )
@@ -1506,11 +1567,97 @@ class AnalisarPontosGoesDialog(QWidget):
                     self.mostrar_informacoes_evento(event_id)
             )
 
+            # Coluna 1 = Info
             self.table.setCellWidget(
                 row,
-                9,
+                1,
                 info_btn
             )
+
+            # --------------------------------------------------
+            # STATUS VISUAL
+            # --------------------------------------------------
+
+            item_status = QTableWidgetItem()
+
+            if "144" in classes and "288" in classes:
+                item_status.setText("🔴")
+
+            elif "72" in classes and "143" in classes:
+                item_status.setText("🟠")
+
+            elif "36" in classes and "71" in classes:
+                item_status.setText("🟡")
+
+            elif "1" in classes and "35" in classes:
+                item_status.setText("🟢")
+
+            else:
+                item_status.setText("")
+
+            item_status.setData(
+                Qt.UserRole,
+                id_evento
+            )
+
+            item_status.setTextAlignment(
+                Qt.AlignCenter
+            )
+
+            # Coluna 2 = Status
+            self.table.setItem(
+                row,
+                2,
+                item_status
+            )
+
+            # --------------------------------------------------
+            # DEMAIS COLUNAS
+            # --------------------------------------------------
+
+            valores = [
+                str(id_evento),
+                self._formatar_texto(regiao),
+                self._formatar_texto(municipio),
+                self._formatar_texto(estado),
+                self._formatar_texto(qtd_frente),
+                str(qtd_pontos),
+                classes,
+            ]
+
+            # Começa na coluna 3 = Evento
+            for column, value in enumerate(
+                valores,
+                start=3
+            ):
+
+                item = QTableWidgetItem(
+                    value
+                )
+
+                item.setData(
+                    Qt.UserRole,
+                    id_evento
+                )
+
+                # Centralizar:
+                # Evento, UF, Frentes e Pontos GOES
+                if column in (
+                    3,
+                    6,
+                    7,
+                    8,
+                ):
+
+                    item.setTextAlignment(
+                        Qt.AlignCenter
+                    )
+
+                self.table.setItem(
+                    row,
+                    column,
+                    item
+                )
 
         self.table.blockSignals(
             False
@@ -1521,6 +1668,7 @@ class AnalisarPontosGoesDialog(QWidget):
         self._atualizar_botao_adicionar_mapa()
 
         self._atualizar_botoes_selecao()
+
 
     # ======================================================
     # ATUALIZAR BOTÕES CONFORME SELEÇÃO
@@ -1543,9 +1691,9 @@ class AnalisarPontosGoesDialog(QWidget):
             tem_eventos
         )
 
-        self.areas_ciman_btn.setEnabled(
-            tem_eventos
-        )
+        # self.areas_ciman_btn.setEnabled(
+        #     tem_eventos
+        # )
 
 
     # ======================================================
@@ -3017,6 +3165,24 @@ class AnalisarPontosGoesDialog(QWidget):
                     classe_ponto
                 ).lower()
 
+                # if (
+                #     "144" in texto_classe
+                #     and "288" in texto_classe
+                # ):
+
+                #     classe_visual = "vermelho"
+
+                # elif (
+                #     "72" in texto_classe
+                #     and "143" in texto_classe
+                # ):
+
+                #     classe_visual = "laranja"
+
+                # else:
+
+                #     classe_visual = None
+
                 if (
                     "144" in texto_classe
                     and "288" in texto_classe
@@ -3030,6 +3196,20 @@ class AnalisarPontosGoesDialog(QWidget):
                 ):
 
                     classe_visual = "laranja"
+
+                elif (
+                    "36" in texto_classe
+                    and "71" in texto_classe
+                ):
+
+                    classe_visual = "amarelo"
+
+                elif (
+                    "1" in texto_classe
+                    and "35" in texto_classe
+                ):
+
+                    classe_visual = "verde"
 
                 else:
 

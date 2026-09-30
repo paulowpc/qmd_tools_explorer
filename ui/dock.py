@@ -16,6 +16,18 @@ from qgis.PyQt.QtWidgets import (
 )
 from qgis.PyQt.QtGui import QPixmap, QIcon
 
+from .search_widget import SearchWidget
+from .results_widget import ResultsWidget
+from .log_widget import LogWidget
+from .system_widget import SystemWidget
+from .layer_widgets import LayersWidget
+from .fire_widget import FireWidget
+from ..core.roi_manager import ROIManager
+
+from .analisar_pontos_goes_dialog import AnalisarPontosGoesDialog
+
+from .loading import LoadingSpinner
+
 
 
 class VerticalIconTabBar(QTabBar):
@@ -120,53 +132,6 @@ class BDCSTACDock(QDockWidget):
     # ======================================================
 
     def _build_ui(self):
-
-        # --------------------------------------------------
-        # Carregamento seguro dos módulos
-        #
-        # O módulo Sistema deve poder ser carregado mesmo quando
-        # alguma dependência externa dos demais módulos estiver
-        # ausente. Os módulos são importados individualmente.
-        # --------------------------------------------------
-        from importlib import import_module
-
-        from ..core.roi_manager import ROIManager
-        from .system_widget import SystemWidget
-
-        self._module_import_errors = {}
-
-        def _safe_import(module_name, class_name):
-            try:
-                module = import_module(module_name, package=__package__)
-                return getattr(module, class_name)
-            except Exception as exc:
-                self._module_import_errors[module_name] = exc
-                return None
-
-        SearchWidget = _safe_import(
-            ".search_widget",
-            "SearchWidget",
-        )
-        ResultsWidget = _safe_import(
-            ".results_widget",
-            "ResultsWidget",
-        )
-        LogWidget = _safe_import(
-            ".log_widget",
-            "LogWidget",
-        )
-        LayersWidget = _safe_import(
-            ".layer_widgets",
-            "LayersWidget",
-        )
-        FireWidget = _safe_import(
-            ".fire_widget",
-            "FireWidget",
-        )
-        AnalisarPontosGoesDialog = _safe_import(
-            ".analisar_pontos_goes_dialog",
-            "AnalisarPontosGoesDialog",
-        )
 
         root = QWidget(self)
         root.setMinimumSize(0, 0)
@@ -304,6 +269,13 @@ class BDCSTACDock(QDockWidget):
         right_layout.addWidget(header)
 
         # ==================================================
+        # LOADING GLOBAL
+        # ==================================================
+
+        self.loading = LoadingSpinner(self)
+        self.loading.hide()
+
+        # ==================================================
         # ROI
         # ==================================================
 
@@ -313,48 +285,35 @@ class BDCSTACDock(QDockWidget):
         # WIDGETS DOS MÓDULOS
         # ==================================================
 
-        # Sistema é carregado sempre, pois é responsável pela
-        # verificação/instalação das dependências.
+        # self.search = SearchWidget(
+        #     roi_manager=self.roi_manager
+        # )
+
+        self.search = SearchWidget(
+            roi_manager=self.roi_manager,
+            loading=self.loading
+        )
+
+        self.results = ResultsWidget(
+            roi_manager=self.roi_manager,
+            loading=self.loading
+        )
+
+        self.fire = FireWidget(
+            roi_manager=self.roi_manager
+        )
+
+        self.goes = AnalisarPontosGoesDialog(
+            loading=self.loading
+        )
+
+        self.layers = LayersWidget(
+            loading=self.loading
+        )
+
+
+        self.log = LogWidget()
         self.system = SystemWidget()
-
-        # Os demais módulos podem depender de bibliotecas externas.
-        # Se alguma delas estiver ausente, mantemos um QWidget vazio
-        # no lugar do módulo para que o plugin continue carregando.
-        self.search = (
-            SearchWidget(roi_manager=self.roi_manager)
-            if SearchWidget is not None
-            else QWidget()
-        )
-
-        self.results = (
-            ResultsWidget(roi_manager=self.roi_manager)
-            if ResultsWidget is not None
-            else QWidget()
-        )
-
-        self.fire = (
-            FireWidget(roi_manager=self.roi_manager)
-            if FireWidget is not None
-            else QWidget()
-        )
-
-        self.goes = (
-            AnalisarPontosGoesDialog()
-            if AnalisarPontosGoesDialog is not None
-            else QWidget()
-        )
-
-        self.layers = (
-            LayersWidget()
-            if LayersWidget is not None
-            else QWidget()
-        )
-
-        self.log = (
-            LogWidget()
-            if LogWidget is not None
-            else QWidget()
-        )
 
         for widget in (
             self.search,
@@ -500,10 +459,9 @@ class BDCSTACDock(QDockWidget):
             self._open_settings
         )
 
-        if SearchWidget is not None:
-            self.search.search_requested.connect(
-                self._show_results
-            )
+        self.search.search_requested.connect(
+            self._show_results
+        )
 
         # Painel direito: cabeçalho + conteúdo do módulo
         main_layout.addWidget(right_panel, 1)
@@ -661,8 +619,7 @@ class BDCSTACDock(QDockWidget):
 
     def clear_search(self):
 
-        if hasattr(self.results, "clear_search"):
-            self.results.clear_search()
+        self.results.clear_search()
 
         # Só muda para Resultados se o módulo estiver habilitado.
         if self._module_enabled.get(
@@ -677,9 +634,6 @@ class BDCSTACDock(QDockWidget):
     # ======================================================
 
     def _show_results(self, data):
-
-        if not hasattr(self.results, "set_results"):
-            return
 
         self.results.set_results(
             data["items"],
@@ -701,8 +655,7 @@ class BDCSTACDock(QDockWidget):
 
     def run_search(self):
 
-        if hasattr(self.search, "execute_search"):
-            self.search.execute_search(False)
+        self.search.execute_search(False)
 
 
     # ======================================================
@@ -711,8 +664,7 @@ class BDCSTACDock(QDockWidget):
 
     def load_google_hybrid(self):
 
-        if hasattr(self.search, "load_google_hybrid"):
-            self.search.load_google_hybrid()
+        self.search.load_google_hybrid()
 
 
 __all__ = [

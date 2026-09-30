@@ -25,6 +25,7 @@ from qgis.PyQt.QtWidgets import (
     QRadioButton,
     QButtonGroup,
     QMessageBox,
+    QApplication,
 )
 
 from qgis.core import (
@@ -32,6 +33,8 @@ from qgis.core import (
     QgsCoordinateTransform,
     QgsRectangle,
     QgsProject,
+    QgsApplication,
+    QgsTask,
 )
 
 from qgis.utils import iface
@@ -47,14 +50,98 @@ from ..config.config import load_collections
 
 from ..utils.footprint import add_footprints
 
+class ImageProcessingTask(QgsTask):
+    """Executa o processamento das imagens em segundo plano."""
+
+    def __init__(
+        self,
+        description,
+        process_function,
+        on_finished=None,
+    ):
+        super().__init__(
+            description,
+            QgsTask.CanCancel
+        )
+
+        self.process_function = process_function
+        self.on_finished = on_finished
+        self.error = None
+        self.result = None
+
+    def run(self):
+
+        try:
+
+            self.result = self.process_function()
+
+            return True
+
+        except Exception as e:
+
+            self.error = e
+
+            return False
+
+    def finished(self, result):
+
+        if self.on_finished:
+
+            self.on_finished(
+                result,
+                self.error,
+            )
+
+class ThumbnailTask(QgsTask):
+    """Baixa e prepara o thumbnail em segundo plano."""
+
+    def __init__(
+        self,
+        description,
+        process_function,
+        on_finished=None,
+    ):
+        super().__init__(
+            description,
+            QgsTask.CanCancel
+        )
+        self.process_function = process_function
+        self.on_finished = on_finished
+        self.error = None
+        self.result = None
+
+    def run(self):
+
+        try:
+
+            self.result = self.process_function()
+
+            return True
+
+        except Exception as e:
+
+            self.error = e
+
+            return False
+
+    def finished(self, result):
+
+        if self.on_finished:
+
+            self.on_finished(
+                self.result,
+                self.error,
+            )
+
 
 class ResultsWidget(QWidget):
 
-    def __init__(self, parent=None, roi_manager=None):
+    def __init__(self, parent=None, roi_manager=None, loading=None,):
 
         super().__init__(parent)
 
         self.roi_manager = roi_manager
+        self.loading = loading
         self.items = []
         self.output_dir = ""
         self.satellite_hint = ""
@@ -1119,7 +1206,48 @@ class ResultsWidget(QWidget):
 
         def cb():
 
-            try:
+            # -----------------------------------------------------
+            # Captura informações da interface na thread principal.
+            # O download/processamento será executado em segundo plano.
+            # -----------------------------------------------------
+
+            roi = self._get_roi_extent_wgs84()
+
+            roi_coords = None
+
+            if roi is not None:
+
+                roi_coords = (
+                    float(roi.xMinimum()),
+                    float(roi.yMinimum()),
+                    float(roi.xMaximum()),
+                    float(roi.yMaximum()),
+                )
+
+            scene_bbox = getattr(item, "bbox", None)
+
+            if scene_bbox:
+
+                scene_bbox = tuple(
+                    float(value)
+                    for value in scene_bbox
+                )
+
+            # -----------------------------------------------------
+            # MOSTRAR SPINNER
+            # -----------------------------------------------------
+
+            if self.loading:
+
+                self.loading.show()
+
+                QApplication.processEvents()
+
+            # -----------------------------------------------------
+            # PROCESSAMENTO EM SEGUNDO PLANO
+            # -----------------------------------------------------
+
+            def executar_thumbnail():
 
                 r = requests.get(
                     url,
@@ -1162,35 +1290,48 @@ class ResultsWidget(QWidget):
                         )
                     )
 
+                roi_log = None
+
                 # -------------------------------------------------
-                # TESTE: DESENHA A REGIÃO DE INTERESSE NO THUMBNAIL
+                # DESENHA A REGIÃO DE INTERESSE NO THUMBNAIL
                 # -------------------------------------------------
 
-                roi = self._get_roi_extent_wgs84()
-                scene_bbox = getattr(item, "bbox", None)
+                if roi_coords is not None and scene_bbox:
 
-                if roi is not None and scene_bbox:
                     try:
 
-                        scene_xmin = float(scene_bbox[0])
-                        scene_ymin = float(scene_bbox[1])
-                        scene_xmax = float(scene_bbox[2])
-                        scene_ymax = float(scene_bbox[3])
+                        (
+                            roi_xmin,
+                            roi_ymin,
+                            roi_xmax,
+                            roi_ymax,
+                        ) = roi_coords
 
-                        roi_xmin = float(roi.xMinimum())
-                        roi_ymin = float(roi.yMinimum())
-                        roi_xmax = float(roi.xMaximum())
-                        roi_ymax = float(roi.yMaximum())
+                        (
+                            scene_xmin,
+                            scene_ymin,
+                            scene_xmax,
+                            scene_ymax,
+                        ) = scene_bbox
 
-                        scene_width = scene_xmax - scene_xmin
-                        scene_height = scene_ymax - scene_ymin
+                        scene_width = (
+                            scene_xmax - scene_xmin
+                        )
 
-                        if scene_width > 0 and scene_height > 0:
+                        scene_height = (
+                            scene_ymax - scene_ymin
+                        )
+
+                        if (
+                            scene_width > 0
+                            and scene_height > 0
+                        ):
 
                             img_width, img_height = img.size
 
                             # Converte coordenadas geográficas para pixels.
                             # O eixo Y da imagem cresce de cima para baixo.
+
                             x1 = (
                                 (roi_xmin - scene_xmin)
                                 / scene_width
@@ -1217,10 +1358,38 @@ class ResultsWidget(QWidget):
 
                             # Mantém somente a parte da ROI
                             # que intersecta o thumbnail.
-                            x1 = max(0, min(img_width, x1))
-                            x2 = max(0, min(img_width, x2))
-                            y1 = max(0, min(img_height, y1))
-                            y2 = max(0, min(img_height, y2))
+
+                            x1 = max(
+                                0,
+                                min(
+                                    img_width,
+                                    x1,
+                                ),
+                            )
+
+                            x2 = max(
+                                0,
+                                min(
+                                    img_width,
+                                    x2,
+                                ),
+                            )
+
+                            y1 = max(
+                                0,
+                                min(
+                                    img_height,
+                                    y1,
+                                ),
+                            )
+
+                            y2 = max(
+                                0,
+                                min(
+                                    img_height,
+                                    y2,
+                                ),
+                            )
 
                             if x1 < x2 and y1 < y2:
 
@@ -1260,7 +1429,7 @@ class ResultsWidget(QWidget):
                                     overlay,
                                 )
 
-                                log_message(
+                                roi_log = (
                                     "[THUMBNAIL] ROI desenhada no thumbnail: "
                                     f"{roi_xmin:.8f}, "
                                     f"{roi_ymin:.8f}, "
@@ -1270,41 +1439,88 @@ class ResultsWidget(QWidget):
 
                             else:
 
-                                log_message(
+                                roi_log = (
                                     "[THUMBNAIL] ROI não intersecta "
                                     "o BBOX da cena."
                                 )
 
                         else:
 
-                            log_message(
+                            roi_log = (
                                 "[THUMBNAIL] BBOX da cena inválido."
                             )
 
                     except Exception as e:
 
-                        log_message(
+                        roi_log = (
                             f"[THUMBNAIL] Erro ao desenhar ROI: {e}"
                         )
 
                 else:
 
-                    if roi is None:
-                        log_message(
+                    if roi_coords is None:
+
+                        roi_log = (
                             "[THUMBNAIL] Nenhuma ROI disponível."
                         )
 
-                    if not scene_bbox:
-                        log_message(
+                    elif not scene_bbox:
+
+                        roi_log = (
                             "[THUMBNAIL] Cena sem BBOX STAC."
                         )
 
+                return {
+                    "png": self._png(img),
+                    "roi_log": roi_log,
+                }
+
+            # -----------------------------------------------------
+            # FINALIZAÇÃO NA THREAD PRINCIPAL
+            # -----------------------------------------------------
+
+            def finalizar_thumbnail(
+                result,
+                error=None,
+            ):
+
+                if self.loading:
+
+                    self.loading.hide()
+
+                if error:
+
+                    log_message(
+                        f"Erro ao processar thumbnail: {error}"
+                    )
+
+                    return
+
+                if not result:
+
+                    log_message(
+                        "Erro ao processar thumbnail: "
+                        "nenhum resultado foi retornado."
+                    )
+
+                    return
+
+                roi_log = result.get(
+                    "roi_log"
+                )
+
+                if roi_log:
+
+                    log_message(
+                        roi_log
+                    )
+
+                # ---------------------------------------------
+                # QIMAGE / QPIXMAP / QDIALOG
+                # ---------------------------------------------
+
                 q = QImage.fromData(
-                    BytesIO(
-                        self._png(
-                            img
-                        )
-                    ).getvalue()
+                    result["png"]
                 )
 
                 pix = QPixmap.fromImage(
@@ -1349,11 +1565,19 @@ class ResultsWidget(QWidget):
 
                 dlg.exec_()
 
-            except Exception as e:
+            # -----------------------------------------------------
+            # CRIAR TAREFA
+            # -----------------------------------------------------
 
-                log_message(
-                    f"Erro ao processar thumbnail: {e}"
-                )
+            task = ThumbnailTask(
+                "Carregando thumbnail",
+                executar_thumbnail,
+                finalizar_thumbnail,
+            )
+
+            QgsApplication.taskManager().addTask(
+                task
+            )
 
         return cb
 
@@ -1614,7 +1838,13 @@ class ResultsWidget(QWidget):
         # PROCESSA
         # -----------------------------------------------------
 
+        # -----------------------------------------------------
+        # PREPARA O PROCESSAMENTO
+        # -----------------------------------------------------
+
         collections = load_collections()
+
+        jobs = []
 
         for (
             collection,
@@ -1692,38 +1922,133 @@ class ResultsWidget(QWidget):
                 f"{collection.replace('/', '_').replace(' ', '_')}"
             )
 
+            jobs.append(
+                {
+                    "collection": collection,
+                    "composite_name": composite_name,
+                    "family": family,
+                    "bands": bands,
+                    "items": items,
+                    "out": out,
+                }
+            )
+
+        if not jobs:
+
             log_message(
-                f"[VRT] Processando "
-                f"{collection} | "
-                f"{composite_name}"
+                "[VRT] Nenhum processamento válido para executar."
             )
 
-            log_message(
-                f"[VRT] Família: {family} | "
-                f"Bandas: {', '.join(bands)}"
-            )
+            return
 
-            # -------------------------------------------------
-            # GERA VRT
-            # -------------------------------------------------
+        # -----------------------------------------------------
+        # MOSTRAR SPINNER
+        # -----------------------------------------------------
 
-            groups = generate_individual_vrts(
-                family,
-                bands,
-                items,
-                out,
-                create_mosaic=self.mosaic.isChecked(),
-                clip_extent=clip_extent,
-            )
+        if self.loading:
 
-            # -------------------------------------------------
-            # MOSAICO
-            # -------------------------------------------------
+            self.loading.show()
 
-            if self.mosaic.isChecked():
+            QApplication.processEvents()
 
-                create_mosaics_from_groups(
-                    family,
-                    groups,
-                    out,
+        # -----------------------------------------------------
+        # PROCESSAMENTO EM SEGUNDO PLANO
+        # -----------------------------------------------------
+
+        mosaic_enabled = self.mosaic.isChecked()
+
+        def executar_processamento():
+
+            for job in jobs:
+
+                collection = job["collection"]
+                composite_name = job["composite_name"]
+                family = job["family"]
+                bands = job["bands"]
+                items = job["items"]
+                out = job["out"]
+
+                log_message(
+                    f"[VRT] Processando "
+                    f"{collection} | "
+                    f"{composite_name}"
                 )
+
+                log_message(
+                    f"[VRT] Família: {family} | "
+                    f"Bandas: {', '.join(bands)}"
+                )
+
+                # ---------------------------------------------
+                # GERA VRT
+                # ---------------------------------------------
+
+                groups = generate_individual_vrts(
+                    family,
+                    bands,
+                    items,
+                    out,
+                    create_mosaic=mosaic_enabled,
+                    clip_extent=clip_extent,
+                )
+
+                # ---------------------------------------------
+                # MOSAICO
+                # ---------------------------------------------
+
+                if mosaic_enabled:
+
+                    create_mosaics_from_groups(
+                        family,
+                        groups,
+                        out,
+                    )
+
+            return True
+
+        # -----------------------------------------------------
+        # FINALIZAÇÃO
+        # -----------------------------------------------------
+
+        def finalizar_processamento(
+            result,
+            error=None,
+        ):
+
+            if self.loading:
+
+                self.loading.hide()
+
+            if error:
+
+                log_message(
+                    f"[VRT] Erro no processamento: {error}"
+                )
+
+                QMessageBox.warning(
+                    self,
+                    "QMD Tools Explorer",
+                    "Ocorreu um erro durante o processamento "
+                    "das imagens.\n\n"
+                    f"{error}",
+                )
+
+                return
+
+            log_message(
+                "[VRT] Processamento concluído."
+            )
+
+        # -----------------------------------------------------
+        # CRIAR TAREFA
+        # -----------------------------------------------------
+
+        task = ImageProcessingTask(
+            "Processando imagens",
+            executar_processamento,
+            finalizar_processamento,
+        )
+
+        QgsApplication.taskManager().addTask(
+            task
+        )

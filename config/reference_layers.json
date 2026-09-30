@@ -134,6 +134,23 @@
           "temporal": false
         }
       }
+    },
+    "prodes": {
+        "name": "PRODES Brasil",
+        "type": "WMS",
+        "url": "https://terrabrasilis.dpi.inpe.br/geoserver/prodes-brasil-nb/wms",
+        "crs": "EPSG:4674",
+        "format": "image/png",
+        "enabled": true,
+        "layers": {
+            "prodes_brasil": {
+                "name": "PRODES Brasil",
+                "layer": "prodes_brasil",
+                "styles": "",
+                "enabled": true,
+                "temporal": false
+            }
+        }
     }
   },
   "territorio_areas_protegidas": {
@@ -207,10 +224,18 @@
     "pontos_atencao_48h": {
       "name": "Pontos de Atenção GOES - 48h",
       "type": "KML",
-      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/focos/kml/focos_goes_ponto_atencao_48hr/focos_goes_ponto_atencao_abi_48hr.kml",
-      "filename": "focos_goes_ponto_atencao_abi_48hr.kml",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/focos/kml/focos_goes_ponto_atencao_48hr/focos_goes_ponto_atencao_48hr.kml",
+      "filename": "focos_goes_ponto_atencao_48hr.kml",
       "force_download": true,
       "enabled": true
+    },
+    "pontos_atencao_abi_48h": {
+        "name": "Pontos de Atenção GOES ABI - 48h",
+        "type": "KML",
+        "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/focos/kml/focos_goes_ponto_atencao_48hr/focos_goes_ponto_atencao_abi_48hr.kml",
+        "filename": "focos_goes_ponto_atencao_abi_48hr.kml",
+        "force_download": true,
+        "enabled": true
     },
     "eventos_ativos": {
       "name": "Eventos Ativos",
@@ -298,6 +323,7 @@
         "goes19_composicao632": {
           "name": "GOES-19 B6-B3-B2",
           "layer": "GOES19-composicao632_ultima_passagem",
+          "styles": "",
           "enabled": true
         }
       }

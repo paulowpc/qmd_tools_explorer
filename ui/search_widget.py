@@ -42,6 +42,7 @@ from qgis.gui import QgsMapToolExtent
 
 from qgis.core import (
     QgsApplication,
+    QgsTask,
     QgsRasterLayer,
     QgsVectorLayer,
     QgsProject,
@@ -70,8 +71,6 @@ from ..core.stac_core import (
     log_message,
 )
 
-from ..core.dependencies import check_dependencies
-
 from ..utils.extent import (
     get_canvas_bbox,
 )
@@ -79,11 +78,47 @@ from ..utils.extent import (
 from ..core.roi_manager import ROIManager
 
 
+class STACSearchTask(QgsTask):
+    """Executa a busca STAC em segundo plano."""
+
+    def __init__(
+        self,
+        description,
+        search_function,
+        on_finished,
+    ):
+        super().__init__(
+            description,
+            QgsTask.CanCancel
+        )
+
+        self.search_function = search_function
+        self.on_finished = on_finished
+        self.items = []
+        self.error = None
+
+    def run(self):
+        try:
+            self.items = self.search_function()
+            return True
+        except Exception as e:
+            self.error = e
+            return False
+
+    def finished(self, result):
+
+        if self.on_finished:
+            self.on_finished(
+                self.items,
+                self.error,
+            )
+
 class SearchWidget(QWidget):
 
     search_requested = pyqtSignal(object)
 
-    def __init__(self, parent=None, roi_manager=None):
+    # def __init__(self, parent=None, roi_manager=None):
+    def __init__(self, parent=None, roi_manager=None, loading=None):
 
         super().__init__(parent)
 
@@ -92,6 +127,8 @@ class SearchWidget(QWidget):
             if roi_manager is not None
             else ROIManager(self)
         )
+
+        self.loading = loading
 
         # O conteúdo da Busca pode ser maior que a área disponível.
         # A altura deve ser determinada pelo dock, não pelo conteúdo.
@@ -1352,259 +1389,302 @@ class SearchWidget(QWidget):
         force_extent=False,
     ):
 
-        selected = [
-            name
-            for name, checkbox
-            in self.checkboxes.items()
-            if checkbox.isChecked()
-        ]
+        if self.loading:
+            self.loading.show()
+            QApplication.processEvents()
+
+        task_started = False
+
+        try:
+
+            selected = [
+                name
+                for name, checkbox
+                in self.checkboxes.items()
+                if checkbox.isChecked()
+            ]
 
 
-        if not selected:
-
-            QMessageBox.warning(
-                iface.mainWindow(),
-                "QMD Tools Explorer",
-                "Selecione pelo menos uma coleção.",
-            )
-
-            return
-
-
-        start = self.start.date().toString(
-            "yyyy-MM-dd"
-        )
-
-        end = self.end.date().toString(
-            "yyyy-MM-dd"
-        )
-
-
-        tile = (
-            self.tile.text()
-            .strip()
-        )
-
-
-        output = (
-            self.output.text()
-            .strip()
-        )
-
-
-        if output:
-
-            save_output_dir(
-                output
-            )
-
-        else:
-
-            output = get_output_dir()
-
-
-        # ------------------------------------------------------
-        # CONECTAR AO STAC
-        # ------------------------------------------------------
-
-        client = connect_to_stac(
-            STAC_URL
-        )
-
-
-        if not client:
-
-            return
-
-
-        # ------------------------------------------------------
-        # IDs DAS COLEÇÕES
-        # ------------------------------------------------------
-
-        ids = [
-
-            self.collections[name].get(
-                "id"
-            )
-
-            for name in selected
-
-            if self.collections[name].get(
-                "id"
-            )
-
-        ]
-
-
-        # ------------------------------------------------------
-        # DEFINIR TIPO DE BUSCA
-        # ------------------------------------------------------
-
-        use_extent = (
-            force_extent
-            or not tile
-        )
-
-        bbox = None
-
-        if use_extent:
-
-            if not self.roi_manager.has_bbox():
+            if not selected:
 
                 QMessageBox.warning(
                     iface.mainWindow(),
                     "QMD Tools Explorer",
-                    "Nenhuma Região de Interesse foi capturada.\n\n"
-                    "Navegue até a área desejada no mapa e clique em "
-                    "\"Capturar\"."
+                    "Selecione pelo menos uma coleção.",
                 )
 
                 return
 
-            bbox = self.roi_manager.get_bbox()
 
-
-        # ------------------------------------------------------
-        # LOG
-        # ------------------------------------------------------
-
-        log_message(
-            "----------------------------------------"
-        )
-
-        log_message(
-            "QMD Tools Explorer - iniciando busca"
-        )
-
-        log_message(
-            f"Coleções: {selected}"
-        )
-
-
-        # ------------------------------------------------------
-        # BUSCAR ITENS
-        # ------------------------------------------------------
-
-        if use_extent:
-
-            items = search_items_by_bbox(
-                client,
-                bbox,
-                start,
-                end,
-                ids,
+            start = self.start.date().toString(
+                "yyyy-MM-dd"
             )
 
-        else:
-
-            items = search_items(
-                client,
-                tile,
-                start,
-                end,
-                ids,
+            end = self.end.date().toString(
+                "yyyy-MM-dd"
             )
 
 
-        # ------------------------------------------------------
-        # SEM RESULTADOS
-        # ------------------------------------------------------
-
-        if not items:
-
-            QMessageBox.information(
-                iface.mainWindow(),
-                "QMD Tools Explorer",
-                (
-                    "Nenhuma imagem disponível "
-                    "para os parâmetros fornecidos."
-                ),
+            tile = (
+                self.tile.text()
+                .strip()
             )
+
+
+            output = (
+                self.output.text()
+                .strip()
+            )
+
+
+            if output:
+
+                save_output_dir(
+                    output
+                )
+
+            else:
+
+                output = get_output_dir()
+
+
+            # ------------------------------------------------------
+            # CONECTAR AO STAC
+            # ------------------------------------------------------
+
+            client = connect_to_stac(
+                STAC_URL
+            )
+
+
+            if not client:
+
+                return
+
+
+            # ------------------------------------------------------
+            # IDs DAS COLEÇÕES
+            # ------------------------------------------------------
+
+            ids = [
+
+                self.collections[name].get(
+                    "id"
+                )
+
+                for name in selected
+
+                if self.collections[name].get(
+                    "id"
+                )
+
+            ]
+
+
+            # ------------------------------------------------------
+            # DEFINIR TIPO DE BUSCA
+            # ------------------------------------------------------
+
+            use_extent = (
+                force_extent
+                or not tile
+            )
+
+            bbox = None
+
+            if use_extent:
+
+                if not self.roi_manager.has_bbox():
+
+                    QMessageBox.warning(
+                        iface.mainWindow(),
+                        "QMD Tools Explorer",
+                        "Nenhuma Região de Interesse foi capturada.\n\n"
+                        "Navegue até a área desejada no mapa e clique em "
+                        "\"Capturar\"."
+                    )
+
+                    return
+
+                bbox = self.roi_manager.get_bbox()
+
+
+            # ------------------------------------------------------
+            # LOG
+            # ------------------------------------------------------
+
+            log_message(
+                "----------------------------------------"
+            )
+
+            log_message(
+                "QMD Tools Explorer - iniciando busca"
+            )
+
+            log_message(
+                f"Coleções: {selected}"
+            )
+
+
+            # ------------------------------------------------------
+            # BUSCAR ITENS
+            # ------------------------------------------------------
+
+            def executar_busca_stac():
+                if use_extent:
+                    return search_items_by_bbox(
+                        client,
+                        bbox,
+                        start,
+                        end,
+                        ids,
+                    )
+                else:
+                    return search_items(
+                        client,
+                        tile,
+                        start,
+                        end,
+                        ids,
+                    )
+
+
+            def processar_resultados(items, error=None):
+
+                if self.loading:
+                    self.loading.hide()
+
+                if error:
+
+                    QMessageBox.warning(
+                        iface.mainWindow(),
+                        "QMD Tools Explorer",
+                        f"Erro ao buscar imagens:\n\n{error}",
+                    )
+
+                    return
+
+
+                # ------------------------------------------------------
+                # SEM RESULTADOS
+                # ------------------------------------------------------
+
+                if not items:
+
+                    QMessageBox.information(
+                        iface.mainWindow(),
+                        "QMD Tools Explorer",
+                        (
+                            "Nenhuma imagem disponível "
+                            "para os parâmetros fornecidos."
+                        ),
+                    )
+
+                    return
+
+
+                # ------------------------------------------------------
+                # MAPEAR COLLECTION ID
+                # ------------------------------------------------------
+
+                collection_by_id = {
+
+                    config.get("id"): name
+
+                    for name, config
+                    in self.collections.items()
+
+                    if config.get("id")
+
+                }
+
+
+                filtered = []
+
+
+                for item in items:
+
+                    collection_id = (
+                        getattr(
+                            item,
+                            "collection_id",
+                            None,
+                        )
+
+                        or item.properties.get(
+                            "collection"
+                        )
+                    )
+
+
+                    name = collection_by_id.get(
+                        collection_id
+                    )
+
+
+                    if (
+                        name is None
+                        and len(selected) == 1
+                    ):
+
+                        name = selected[0]
+
+
+                    if name is not None:
+
+                        item.properties[
+                            "_bdc_collection_name"
+                        ] = name
+
+
+                        filtered.append(
+                            item
+                        )
+
+
+                # ------------------------------------------------------
+                # LOG
+                # ------------------------------------------------------
+
+                log_message(
+                    f"{len(filtered)} imagem(ns) encontrada(s)."
+                )
+
+
+                # ------------------------------------------------------
+                # EMITIR RESULTADOS
+                # ------------------------------------------------------
+
+                self.search_requested.emit(
+                    {
+                        "items": filtered,
+                        "collections": selected,
+                        "output_dir": output,
+                        "tile": tile,
+                    }
+                )
+
+
+            task = STACSearchTask(
+                "Buscando imagens no STAC",
+                executar_busca_stac,
+                processar_resultados,
+            )
+
+            QgsApplication.taskManager().addTask(task)
+            task_started = True
+
+            # Limpa o Tile após uma busca por órbita/ponto.
+            # A busca já recebeu o valor na variável `tile`.
+            if tile:
+                self.tile.clear()
 
             return
 
+        finally:
 
-        # ------------------------------------------------------
-        # MAPEAR COLLECTION ID
-        # ------------------------------------------------------
-
-        collection_by_id = {
-
-            config.get("id"): name
-
-            for name, config
-            in self.collections.items()
-
-            if config.get("id")
-
-        }
-
-
-        filtered = []
-
-
-        for item in items:
-
-            collection_id = (
-                getattr(
-                    item,
-                    "collection_id",
-                    None,
-                )
-
-                or item.properties.get(
-                    "collection"
-                )
-            )
-
-
-            name = collection_by_id.get(
-                collection_id
-            )
-
-
-            if (
-                name is None
-                and len(selected) == 1
-            ):
-
-                name = selected[0]
-
-
-            if name is not None:
-
-                item.properties[
-                    "_bdc_collection_name"
-                ] = name
-
-
-                filtered.append(
-                    item
-                )
-
-
-        # ------------------------------------------------------
-        # LOG
-        # ------------------------------------------------------
-
-        log_message(
-            f"{len(filtered)} imagem(ns) encontrada(s)."
-        )
-
-
-        # ------------------------------------------------------
-        # EMITIR RESULTADOS
-        # ------------------------------------------------------
-
-        self.search_requested.emit(
-            {
-                "items": filtered,
-                "collections": selected,
-                "output_dir": output,
-                "tile": tile,
-            }
-        )
-
+             if not task_started and self.loading:
+                self.loading.hide()
 
     # ==========================================================
     # CAMADAS DE REFERÊNCIA

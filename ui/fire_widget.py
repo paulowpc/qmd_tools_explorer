@@ -22,6 +22,9 @@ from qgis.PyQt.QtCore import (
     QDateTime,
     QStringListModel,
     QTimer,
+    QObject,
+    QThread,
+    pyqtSignal,
 )
 
 from qgis.PyQt.QtWidgets import (
@@ -42,6 +45,7 @@ from qgis.PyQt.QtWidgets import (
     QToolButton,
     QSizePolicy,
     QButtonGroup,
+    QApplication,
 )
 
 from qgis.utils import iface
@@ -158,6 +162,51 @@ class CollapsibleBox(QWidget):
         return self._expanded
 
 
+class FireQueryWorker(QObject):
+    """Executa somente as consultas HTTP dos focos em segundo plano.
+
+    A criação/manipulação das camadas QGIS permanece na thread principal.
+    """
+
+    finished = pyqtSignal(object)
+    error = pyqtSignal(str)
+
+    def __init__(self, jobs, parent=None):
+        super().__init__(parent)
+        self.jobs = jobs
+
+    def run(self):
+        arquivos = []
+        try:
+            for job in self.jobs:
+                response = requests.get(
+                    WFS_URL,
+                    params=job["params"],
+                    timeout=60,
+                )
+                response.raise_for_status()
+
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    suffix=".geojson",
+                    delete=False,
+                ) as arquivo:
+                    arquivo.write(response.content)
+                    caminho = arquivo.name
+
+                arquivos.append(caminho)
+
+            self.finished.emit(arquivos)
+
+        except Exception as erro:
+            for caminho in arquivos:
+                try:
+                    os.remove(caminho)
+                except OSError:
+                    pass
+            self.error.emit(str(erro))
+
+
 class FireWidget(QWidget):
     """
     Interface de consulta de focos.
@@ -167,9 +216,22 @@ class FireWidget(QWidget):
     necessárias para atender ao período solicitado.
     """
 
-    def __init__(self, parent=None, roi_manager=None):
+    def __init__(self, parent=None, roi_manager=None, loading=None):
         super().__init__(parent)
         self.roi_manager = roi_manager
+
+        # Usa o animação global quando fornecida pelo dock.
+        # Se o widget for criado sem a referência global, cria um spinner
+        # local apenas como fallback, evitando que a funcionalidade de
+        # consulta seja afetada.
+        if loading is not None:
+            self.loading = loading
+        else:
+            from .loading import LoadingSpinner
+            self.loading = LoadingSpinner(self)
+
+        self._fire_thread = None
+        self._fire_worker = None
         self._geometry_name_cache = {}
         self._camadas_wfs = []
         self._municipios_cache = {}
@@ -865,6 +927,13 @@ class FireWidget(QWidget):
         modo = self.combo_modo_satelite.currentIndex()
         self.list_satellites.setEnabled(modo == 2)
 
+    def _resetar_filtro_satelite(self):
+        """Retorna o filtro de satélite para a configuração padrão."""
+        for i in range(self.list_satellites.count()):
+            self.list_satellites.item(i).setCheckState(Qt.Unchecked)
+
+        self.combo_modo_satelite.setCurrentIndex(0)
+
     def _atualizar_wrs(self):
         # Mantido por compatibilidade com versões anteriores.
         # O filtro agora é feito diretamente pelo campo de texto.
@@ -1119,8 +1188,6 @@ class FireWidget(QWidget):
         for camada in camadas:
             nome = camada.lower()
             if any(x in nome for x in ("48h", "hoje", "mesatual", "ano_atual")):
-                # As camadas de período corrente representam o ano corrente;
-                # o nome não contém "2026", por exemplo.
                 anos_encontrados.add(ano_corrente)
             else:
                 for ano in anos_necessarios:
@@ -1145,15 +1212,9 @@ class FireWidget(QWidget):
         )
         log_message(f"[FOCOS] Região de Interesse: {'Sim' if usa_roi else 'Não'}")
         log_message(f"[FOCOS] Camadas internas: {', '.join(camadas)}")
-        log_message(
-            f"[FOCOS] Bioma: {self.combo_bioma.currentText()}"
-        )
-        log_message(
-            f"[FOCOS] Estado: {self.combo_estado.currentText()}"
-        )
-        log_message(
-            f"[FOCOS] Município: {self._municipio_canonico() or 'Todos'}"
-        )
+        log_message(f"[FOCOS] Bioma: {self.combo_bioma.currentText()}")
+        log_message(f"[FOCOS] Estado: {self.combo_estado.currentText()}")
+        log_message(f"[FOCOS] Município: {self._municipio_canonico() or 'Todos'}")
         descricao_sat = (
             "AQUA_M-T (padrão)" if modo_satelite == 0
             else "Todos os Satélites" if modo_satelite == 1
@@ -1165,123 +1226,208 @@ class FireWidget(QWidget):
         )
 
         bbox = self.roi_manager.get_bbox() if usa_roi else None
+
+        # Prepara as requisições sem acessar widgets dentro da thread.
+        jobs = []
+        for camada in camadas:
+            if bbox:
+                minx, miny, maxx, maxy = bbox
+                params = {
+                    "service": "WFS",
+                    "version": "1.1.0",
+                    "request": "GetFeature",
+                    "typeName": camada,
+                    "srsname": "EPSG:4326",
+                    "bbox": f"{minx},{miny},{maxx},{maxy},EPSG:4326",
+                    "outputFormat": "application/json",
+                }
+            else:
+                cql = self._montar_cql(inicio, fim, satelites)
+                params = {
+                    "service": "WFS",
+                    "version": "1.1.0",
+                    "request": "GetFeature",
+                    "typeName": camada,
+                    "CQL_FILTER": cql,
+                    "srsname": "EPSG:4326",
+                    "outputFormat": "application/json",
+                }
+
+            jobs.append({"camada": camada, "params": params})
+
+        self._fire_context = {
+            "inicio": inicio,
+            "fim": fim,
+            "satelites": satelites,
+            "usar_todosats": usar_todosats,
+            "usa_roi": usa_roi,
+            "camadas": camadas,
+        }
+
+        if self.loading:
+            self.loading.show()
+            self.loading.label.raise_()
+            QApplication.processEvents()
+
+        self.btn_carregar.setEnabled(False)
+
+        self._fire_thread = QThread(self)
+        self._fire_worker = FireQueryWorker(jobs)
+        self._fire_worker.moveToThread(self._fire_thread)
+
+        self._fire_thread.started.connect(self._fire_worker.run)
+        self._fire_worker.finished.connect(self._finalizar_consulta_focos)
+        self._fire_worker.error.connect(self._erro_consulta_focos)
+        self._fire_worker.finished.connect(self._fire_thread.quit)
+        self._fire_worker.error.connect(self._fire_thread.quit)
+        self._fire_worker.finished.connect(self._fire_worker.deleteLater)
+        self._fire_worker.error.connect(self._fire_worker.deleteLater)
+        self._fire_thread.finished.connect(self._fire_thread.deleteLater)
+        self._fire_thread.finished.connect(self._limpar_referencias_thread)
+
+        self._fire_thread.start()
+
+    def _limpar_referencias_thread(self):
+        self._fire_worker = None
+        self._fire_thread = None
+
+    def _erro_consulta_focos(self, erro):
+        if self.loading:
+            self.loading.hide()
+
+        self.btn_carregar.setEnabled(True)
+        log_message(f"[FOCOS] Erro na consulta: {erro}")
+        QMessageBox.warning(
+            self,
+            "Erro na consulta de Focos",
+            f"Não foi possível concluir a consulta.\n\nDetalhes: {erro}",
+        )
+
+    def _finalizar_consulta_focos(self, arquivos_temp):
+        """Cria as camadas QGIS na thread principal após o download."""
+        contexto = self._fire_context
+        inicio = contexto["inicio"]
+        fim = contexto["fim"]
+        satelites = contexto["satelites"]
+        usar_todosats = contexto["usar_todosats"]
+        usa_roi = contexto["usa_roi"]
+        camadas = contexto["camadas"]
+
         todos_features = []
         referencia = None
-        arquivos_temp = []
 
         try:
-            for camada in camadas:
-                log_message(f"[FOCOS] Consultando camada interna: {camada}")
+            for camada_nome, arquivo_temp in zip(camadas, arquivos_temp):
+                log_message(f"[FOCOS] Consultando camada interna: {camada_nome}")
 
-                if bbox:
-                    layer, arquivo_temp = self._baixar_camada_bbox(camada, bbox)
-                    arquivos_temp.append(arquivo_temp)
+                layer = QgsVectorLayer(
+                    arquivo_temp,
+                    "Temp_Focos",
+                    "ogr",
+                )
+                if not layer.isValid():
+                    raise RuntimeError(
+                        f"Não foi possível carregar os dados WFS: {camada_nome}"
+                    )
+
+                if usa_roi:
                     features = self._filtrar_features(
                         layer, inicio, fim, satelites
                     )
                     log_message(
-                        f"[FOCOS] {camada}: {layer.featureCount()} feições no BBOX; "
+                        f"[FOCOS] {camada_nome}: {layer.featureCount()} feições no BBOX; "
                         f"{len(features)} após filtros."
                     )
                 else:
-                    cql = self._montar_cql(inicio, fim, satelites)
-                    uri = (
-                        f"{WFS_URL}?service=WFS&version=1.1.0&request=GetFeature"
-                        f"&typeName={camada}&CQL_FILTER={cql}&srsname=EPSG:4326"
-                    )
-                    layer = QgsVectorLayer(uri, "Temp_Focos", "WFS")
-                    if not layer.isValid():
-                        raise RuntimeError(f"Não foi possível carregar a camada WFS: {camada}")
                     features = list(layer.getFeatures())
                     log_message(
-                        f"[FOCOS] {camada}: {len(features)} feições recebidas após filtros do WFS."
+                        f"[FOCOS] {camada_nome}: {len(features)} feições recebidas após filtros do WFS."
                     )
 
                 if referencia is None:
                     referencia = layer
                 todos_features.extend(features)
 
+            if referencia is None:
+                QMessageBox.information(
+                    self,
+                    "Focos",
+                    "Nenhum foco encontrado para os filtros selecionados.",
+                )
+                return
+
+            vistos = set()
+            features_unicas = []
+            for feature in todos_features:
+                try:
+                    fid = str(feature["id"])
+                except Exception:
+                    fid = ""
+                if not fid:
+                    fid = (
+                        f"{self._texto_feature(feature, 'data_hora_gmt')}|"
+                        f"{self._texto_feature(feature, 'latitude')}|"
+                        f"{self._texto_feature(feature, 'longitude')}|"
+                        f"{self._texto_feature(feature, 'satelite')}"
+                    )
+                if fid in vistos:
+                    continue
+                vistos.add(fid)
+                features_unicas.append(feature)
+
+            nome = (
+                f"Focos da Consulta - {inicio:%d/%m/%Y} a {fim:%d/%m/%Y}"
+            )
+            camada_final = self._criar_memoria(
+                features_unicas, referencia, nome
+            )
+            self._aplicar_estilo(
+                camada_final,
+                usar_todosats=usar_todosats,
+            )
+
+            projeto = QgsProject.instance()
+            root = projeto.layerTreeRoot()
+            projeto.addMapLayer(camada_final, False)
+            root.insertLayer(0, camada_final)
+
+            log_message(
+                f"[FOCOS] Total final: {len(features_unicas)} feições."
+            )
+            log_message(
+                f"[FOCOS] Camada '{nome}' carregada com sucesso."
+            )
+
+            self.input_wrs.clear()
+            self.input_municipio.clear()
+            self.combo_bioma.setCurrentIndex(0)
+            self.combo_estado.setCurrentIndex(0)
+            self._resetar_filtro_satelite()
+
+            iface.setActiveLayer(camada_final)
+            QTimer.singleShot(
+                1000,
+                lambda: (
+                    iface.setActiveLayer(camada_final),
+                    iface.actionZoomToLayer().trigger(),
+                ),
+            )
+
         except Exception as erro:
-            log_message(f"[FOCOS] Erro na consulta: {erro}")
+            log_message(f"[FOCOS] Erro na criação da camada final: {erro}")
             QMessageBox.warning(
                 self,
                 "Erro na consulta de Focos",
-                f"Não foi possível concluir a consulta.\n\nDetalhes: {erro}",
+                f"Os dados foram consultados, mas não foi possível criar a camada final.\n\nDetalhes: {erro}",
             )
+        finally:
             for caminho in arquivos_temp:
                 try:
                     os.remove(caminho)
                 except OSError:
                     pass
-            return
 
-        if referencia is None:
-            QMessageBox.information(
-                self, "Focos", "Nenhum foco encontrado para os filtros selecionados."
-            )
-            return
+            if self.loading:
+                self.loading.hide()
 
-        # Remove duplicidades quando a divisão interna produzir sobreposição.
-        vistos = set()
-        features_unicas = []
-        for feature in todos_features:
-            try:
-                fid = str(feature["id"])
-            except Exception:
-                fid = ""
-            if not fid:
-                fid = (
-                    f"{self._texto_feature(feature, 'data_hora_gmt')}|"
-                    f"{self._texto_feature(feature, 'latitude')}|"
-                    f"{self._texto_feature(feature, 'longitude')}|"
-                    f"{self._texto_feature(feature, 'satelite')}"
-                )
-            if fid in vistos:
-                continue
-            vistos.add(fid)
-            features_unicas.append(feature)
-
-        nome = (
-            f"Focos da Consulta - {inicio:%d/%m/%Y} a {fim:%d/%m/%Y}"
-        )
-        camada_final = self._criar_memoria(features_unicas, referencia, nome)
-        self._aplicar_estilo(camada_final, usar_todosats=usar_todosats)
-
-        projeto = QgsProject.instance()
-        root = projeto.layerTreeRoot()
-        projeto.addMapLayer(camada_final, False)
-        root.insertLayer(0, camada_final)
-
-        for caminho in arquivos_temp:
-            try:
-                os.remove(caminho)
-            except OSError:
-                pass
-
-        log_message(
-            f"[FOCOS] Total final: {len(features_unicas)} feições."
-        )
-        log_message(
-            f"[FOCOS] Camada '{nome}' carregada com sucesso."
-        )
-
-        # Os campos de filtro textual são usados apenas para a consulta atual.
-        # Após concluir a busca, limpamos os campos para que a próxima consulta
-        # não fique inadvertidamente restrita ao mesmo município ou WRS.
-        self.input_wrs.clear()
-        self.input_municipio.clear()
-
-        # Limpa os filtros de área após concluir a consulta.
-        # A busca já foi executada com os valores selecionados; a próxima
-        # consulta começa novamente sem restrição de bioma ou estado.
-        self.combo_bioma.setCurrentIndex(0)
-        self.combo_estado.setCurrentIndex(0)
-
-        iface.setActiveLayer(camada_final)
-        QTimer.singleShot(
-            1000,
-            lambda: (
-                iface.setActiveLayer(camada_final),
-                iface.actionZoomToLayer().trigger(),
-            ),
-        )
+            self.btn_carregar.setEnabled(True)

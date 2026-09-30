@@ -1602,7 +1602,7 @@ def salvar_geopackage(
 # EXECUÇÃO
 # ============================================================
 
-def executar():
+def processar_registros():
 
     print("\n")
     print("=" * 72)
@@ -1751,6 +1751,17 @@ def executar():
             "após os filtros."
         )
 
+        return None
+
+
+    return registros
+
+
+def executar():
+
+    registros = processar_registros()
+
+    if not registros:
         return None
 
     # --------------------------------------------------------

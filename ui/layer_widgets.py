@@ -56,7 +56,7 @@ from ..core.stac_core import log_message
 
 class LayersWidget(QWidget):
 
-    def __init__(self, parent=None, roi_manager=None):
+    def __init__(self, parent=None, roi_manager=None, loading=None):
 
         super().__init__(parent)
 
@@ -64,6 +64,7 @@ class LayersWidget(QWidget):
         # O plugin pode passar explicitamente o roi_manager. Se não passar,
         # _get_shared_roi_manager() tenta encontrá-lo na cadeia de pais.
         self.roi_manager = roi_manager
+        self.loading = loading
 
         self.setMinimumSize(0, 0)
 
@@ -73,6 +74,20 @@ class LayersWidget(QWidget):
         )
 
         self._build_ui()
+
+
+    def _show_loading(self):
+        """Mostra o spinner global durante o carregamento de uma camada."""
+        if self.loading:
+            self.loading.show()
+            QApplication.processEvents()
+
+    def _hide_loading(self):
+        """Esconde o spinner global."""
+        if self.loading:
+            self.loading.hide()
+            QApplication.processEvents()
+
 
 
     # ==========================================================
@@ -480,14 +495,99 @@ class LayersWidget(QWidget):
         cobertura_layout.setSpacing(4)
         cobertura_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
 
+        # self.terraclass_2024_btn = QToolButton()
+        # self.terraclass_2024_btn.setText("Terraclass 2024")
+        # self.terraclass_2024_btn.setToolTip("Adicionar camada Terraclass 2024")
+        # self.terraclass_2024_btn.setIcon(self._custom_icon("satellite.svg"))
+        # self.terraclass_2024_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        # self.terraclass_2024_btn.setMinimumHeight(28)
+        # cobertura_layout.addWidget(self.terraclass_2024_btn)
+        # cobertura_layout.addStretch()
+
+        # ------------------------------------------------------
+        # BOTÕES DE MAPEAMENTO
+        # ------------------------------------------------------
+
+        cobertura_row = QHBoxLayout()
+
+        cobertura_row.setContentsMargins(
+            0,
+            0,
+            0,
+            0,
+        )
+
+        cobertura_row.setSpacing(4)
+
+        cobertura_row.setAlignment(
+            Qt.AlignLeft
+        )
+
+        # ------------------------------------------------------
+        # TERRACLASS 2024
+        # ------------------------------------------------------
+
         self.terraclass_2024_btn = QToolButton()
-        self.terraclass_2024_btn.setText("Terraclass 2024")
-        self.terraclass_2024_btn.setToolTip("Adicionar camada Terraclass 2024")
-        self.terraclass_2024_btn.setIcon(self._custom_icon("satellite.svg"))
-        self.terraclass_2024_btn.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
-        self.terraclass_2024_btn.setMinimumHeight(28)
-        cobertura_layout.addWidget(self.terraclass_2024_btn)
-        cobertura_layout.addStretch()
+
+        self.terraclass_2024_btn.setText(
+            "Terraclass 2024"
+        )
+
+        self.terraclass_2024_btn.setToolTip(
+            "Adicionar camada Terraclass 2024"
+        )
+
+        self.terraclass_2024_btn.setIcon(
+            self._custom_icon("satellite.svg")
+        )
+
+        self.terraclass_2024_btn.setToolButtonStyle(
+            Qt.ToolButtonTextBesideIcon
+        )
+
+        self.terraclass_2024_btn.setMinimumHeight(
+            28
+        )
+
+        cobertura_row.addWidget(
+            self.terraclass_2024_btn
+        )
+
+        # ------------------------------------------------------
+        # PRODES
+        # ------------------------------------------------------
+
+        self.prodes_brasil_btn = QToolButton()
+
+        self.prodes_brasil_btn.setText(
+            "PRODES Brasil"
+        )
+
+        self.prodes_brasil_btn.setToolTip(
+            "Adicionar camada PRODES Brasil"
+        )
+
+        self.prodes_brasil_btn.setIcon(
+            self._custom_icon("satellite.svg")
+        )
+
+        self.prodes_brasil_btn.setToolButtonStyle(
+            Qt.ToolButtonTextBesideIcon
+        )
+
+        self.prodes_brasil_btn.setMinimumHeight(
+            28
+        )
+
+        cobertura_row.addWidget(
+            self.prodes_brasil_btn
+        )
+
+        cobertura_row.addStretch()
+
+        cobertura_layout.addLayout(
+            cobertura_row
+        )
 
         cobertura_section = self._create_collapsible_section(
             "Mapeamento de Cobertura e Uso da Terra",
@@ -522,18 +622,24 @@ class LayersWidget(QWidget):
             Qt.AlignLeft | Qt.AlignTop
         )
 
-        territory_row_1 = QHBoxLayout()
-        territory_row_1.setContentsMargins(
+        # ------------------------------------------------------
+        # PRIMEIRA LINHA
+        # ------------------------------------------------------
+
+        territory_row_3 = QHBoxLayout()
+
+        territory_row_3.setContentsMargins(
             0,
             0,
             0,
             0,
         )
-        territory_row_1.setSpacing(
+
+        territory_row_3.setSpacing(
             4
         )
 
-        territory_row_1.setAlignment(
+        territory_row_3.setAlignment(
             Qt.AlignLeft
         )
 
@@ -550,7 +656,9 @@ class LayersWidget(QWidget):
         self.uc_federal_btn.setToolButtonStyle(
             Qt.ToolButtonTextBesideIcon
         )
-        self.uc_federal_btn.setMinimumHeight(28)
+        self.uc_federal_btn.setMinimumHeight(
+            28
+        )
 
         self.uc_estadual_btn = QToolButton()
         self.uc_estadual_btn.setText(
@@ -565,7 +673,9 @@ class LayersWidget(QWidget):
         self.uc_estadual_btn.setToolButtonStyle(
             Qt.ToolButtonTextBesideIcon
         )
-        self.uc_estadual_btn.setMinimumHeight(28)
+        self.uc_estadual_btn.setMinimumHeight(
+            28
+        )
 
         self.uc_municipal_btn = QToolButton()
         self.uc_municipal_btn.setText(
@@ -580,30 +690,41 @@ class LayersWidget(QWidget):
         self.uc_municipal_btn.setToolButtonStyle(
             Qt.ToolButtonTextBesideIcon
         )
-        self.uc_municipal_btn.setMinimumHeight(28)
+        self.uc_municipal_btn.setMinimumHeight(
+            28
+        )
 
-        territory_row_1.addWidget(
+        territory_row_3.addWidget(
             self.uc_federal_btn
         )
-        territory_row_1.addWidget(
+
+        territory_row_3.addWidget(
             self.uc_estadual_btn
         )
-        territory_row_1.addWidget(
+
+        territory_row_3.addWidget(
             self.uc_municipal_btn
         )
-        territory_row_1.addStretch()
+
+        territory_row_3.addStretch()
 
         territory_layout.addLayout(
-            territory_row_1
+            territory_row_3
         )
 
+        # ------------------------------------------------------
+        # SEGUNDA LINHA
+        # ------------------------------------------------------
+
         territory_row_2 = QHBoxLayout()
+
         territory_row_2.setContentsMargins(
             0,
             0,
             0,
             0,
         )
+
         territory_row_2.setSpacing(
             4
         )
@@ -625,7 +746,9 @@ class LayersWidget(QWidget):
         self.terras_indigenas_btn.setToolButtonStyle(
             Qt.ToolButtonTextBesideIcon
         )
-        self.terras_indigenas_btn.setMinimumHeight(28)
+        self.terras_indigenas_btn.setMinimumHeight(
+            28
+        )
 
         self.assentamentos_btn = QToolButton()
         self.assentamentos_btn.setText(
@@ -640,18 +763,8 @@ class LayersWidget(QWidget):
         self.assentamentos_btn.setToolButtonStyle(
             Qt.ToolButtonTextBesideIcon
         )
-        self.assentamentos_btn.setMinimumHeight(28)
-
-        territory_row_2.addWidget(
-            self.terras_indigenas_btn
-        )
-        territory_row_2.addWidget(
-            self.assentamentos_btn
-        )
-        territory_row_2.addStretch()
-
-        territory_layout.addLayout(
-            territory_row_2
+        self.assentamentos_btn.setMinimumHeight(
+            28
         )
 
         self.quilombos_btn = QToolButton()
@@ -667,11 +780,31 @@ class LayersWidget(QWidget):
         self.quilombos_btn.setToolButtonStyle(
             Qt.ToolButtonTextBesideIcon
         )
-        self.quilombos_btn.setMinimumHeight(28)
+        self.quilombos_btn.setMinimumHeight(
+            28
+        )
+
+        territory_row_2.addWidget(
+            self.terras_indigenas_btn
+        )
+
+        territory_row_2.addWidget(
+            self.assentamentos_btn
+        )
 
         territory_row_2.addWidget(
             self.quilombos_btn
         )
+
+        territory_row_2.addStretch()
+
+        territory_layout.addLayout(
+            territory_row_2
+        )
+
+        # ------------------------------------------------------
+        # SEÇÃO
+        # ------------------------------------------------------
 
         territory_section = (
             self._create_collapsible_section(
@@ -680,6 +813,7 @@ class LayersWidget(QWidget):
                 expanded=False,
             )
         )
+
 
         # layout.addWidget(territory_section)
 
@@ -1109,6 +1243,12 @@ class LayersWidget(QWidget):
             )
         )
 
+        self.prodes_brasil_btn.clicked.connect(
+            lambda: self._load_wms_wmts_from_button(
+                "prodes", "prodes_brasil"
+            )
+        )
+
         self.uc_federal_btn.clicked.connect(
             lambda: self.load_geopackage_reference_layer("uc_federal")
         )
@@ -1395,86 +1535,100 @@ class LayersWidget(QWidget):
         layer_key,
         config_section="territorio_areas_protegidas",
     ):
+        """Carrega um GeoPackage de referência sem bloquear a interface."""
 
         try:
-
-            config = (
-                self._load_reference_layers_config()
-            )
-
-            layer_config = (
-                config[
-                    config_section
-                ][
-                    layer_key
-                ]
-            )
-
+            config = self._load_reference_layers_config()
+            layer_config = config[config_section][layer_key]
         except Exception as error:
-
             log_message(
-                f"Erro ao ler reference_layers.json: "
-                f"{error}"
+                f"Erro ao ler reference_layers.json: {error}"
             )
-
             QMessageBox.warning(
                 iface.mainWindow(),
                 "QMD Tools Explorer",
-                "Não foi possível carregar a "
-                "configuração da camada.\n\n"
+                "Não foi possível carregar a configuração da camada.\n\n"
                 f"Erro: {error}"
             )
-
             return
 
-        # Camadas vetoriais de áreas protegidas não são temporais.
-        # Mantemos o nome definido na configuração, sem depender de
-        # uma variável `date` que não existe neste método.
         base_layer_name = layer_config["name"]
         layer_name = base_layer_name
 
-        if self._layer_exists(
-            layer_name
-        ):
-
-            self._show_layer_exists(
-                layer_name
-            )
-
+        if self._layer_exists(layer_name):
+            self._show_layer_exists(layer_name)
             return
 
-        cache_dir = (
-            self._geopackage_cache_dir()
+        cache_dir = self._geopackage_cache_dir()
+        local_path = cache_dir / layer_config["filename"]
+
+        self._show_loading()
+
+        if local_path.exists():
+            try:
+                layer = QgsVectorLayer(
+                    str(local_path),
+                    layer_name,
+                    "ogr",
+                )
+                self._add_reference_layer(
+                    layer,
+                    layer_name,
+                    is_basemap=False,
+                )
+            finally:
+                self._hide_loading()
+            return
+
+        task = _GeoPackageDownloadTask(
+            layer_config["url"],
+            local_path,
+            layer_name,
+            self,
         )
+        self._geopackage_task = task
+        QgsApplication.taskManager().addTask(task)
 
-        local_path = (
-            cache_dir
-            / layer_config["filename"]
-        )
+    def _geopackage_download_finished(self, task):
+        """Finaliza o download do GeoPackage no thread principal."""
+        self._geopackage_task = None
+        self._hide_loading()
 
-        if not local_path.exists():
-
-            ok = self._download_geopackage(
-                layer_config["url"],
-                local_path,
-                layer_name,
+        if task.error:
+            log_message(
+                f"Erro ao baixar {task.layer_name}: {task.error}"
             )
+            QMessageBox.warning(
+                iface.mainWindow(),
+                "QMD Tools Explorer",
+                "Não foi possível baixar a camada.\n\n"
+                f"Camada: {task.layer_name}\n"
+                f"Erro: {task.error}"
+            )
+            return
 
-            if not ok:
-
-                return
-
-        layer = QgsVectorLayer(
-            str(local_path),
-            layer_name,
-            "ogr",
-        )
-
-        self._add_reference_layer(
-            layer,
-            layer_name,
-            is_basemap=False,
-        )
+        try:
+            layer = QgsVectorLayer(
+                str(task.local_path),
+                task.layer_name,
+                "ogr",
+            )
+            self._add_reference_layer(
+                layer,
+                task.layer_name,
+                is_basemap=False,
+            )
+        except Exception as error:
+            log_message(
+                f"Erro ao carregar {task.layer_name}: {error}"
+            )
+            QMessageBox.warning(
+                iface.mainWindow(),
+                "QMD Tools Explorer",
+                "O download foi concluído, mas a camada não pôde "
+                "ser carregada.\n\n"
+                f"Erro: {error}"
+            )
 
 
     def _load_wfs_reference_layer(
@@ -1519,17 +1673,21 @@ class LayersWidget(QWidget):
             "&srsname=EPSG:4326"
         )
 
-        layer = QgsVectorLayer(
-            uri,
-            layer_name,
-            "WFS",
-        )
+        self._show_loading()
+        try:
+            layer = QgsVectorLayer(
+                uri,
+                layer_name,
+                "WFS",
+            )
 
-        self._add_reference_layer(
-            layer,
-            layer_name,
-            is_basemap=False,
-        )
+            self._add_reference_layer(
+                layer,
+                layer_name,
+                is_basemap=False,
+            )
+        finally:
+            self._hide_loading()
 
 
     def load_xyz_basemap(self, layer_key):
@@ -1562,7 +1720,12 @@ class LayersWidget(QWidget):
             f"&url={encoded_url}"
         )
 
-        layer = QgsRasterLayer(uri, layer_name, "wms")
+        self._show_loading()
+        try:
+            layer = QgsRasterLayer(uri, layer_name, "wms")
+        except Exception:
+            self._hide_loading()
+            raise
         if not layer.isValid():
             log_message(f"Erro ao carregar basemap: {layer_name}")
             QMessageBox.warning(
@@ -1570,6 +1733,7 @@ class LayersWidget(QWidget):
                 "QMD Tools Explorer",
                 f'Não foi possível carregar o basemap "{layer_name}".',
             )
+            self._hide_loading()
             return
 
         QgsProject.instance().setCrs(
@@ -1577,6 +1741,7 @@ class LayersWidget(QWidget):
         )
         layer.setOpacity(1)
         self._add_reference_layer(layer, layer_name, is_basemap=True)
+        self._hide_loading()
 
 
     def load_limite_politico(self, layer_key):
@@ -2199,6 +2364,7 @@ class LayersWidget(QWidget):
 
         self.car_code_btn.setEnabled(False)
         self.car_bbox_btn.setEnabled(False)
+        self._show_loading()
 
         task = _CARCodeTask(
             url,
@@ -2213,6 +2379,7 @@ class LayersWidget(QWidget):
         self.car_code_btn.setEnabled(True)
         self.car_bbox_btn.setEnabled(True)
         self._car_code_task = None
+        self._hide_loading()
 
         if task.error:
             log_message(
@@ -2407,6 +2574,7 @@ class LayersWidget(QWidget):
 
         self.car_code_btn.setEnabled(False)
         self.car_bbox_btn.setEnabled(False)
+        self._show_loading()
 
         task = _CARBBOXTask(
             urls,
@@ -2425,6 +2593,7 @@ class LayersWidget(QWidget):
         self.car_code_btn.setEnabled(True)
         self.car_bbox_btn.setEnabled(True)
         self._car_bbox_task = None
+        self._hide_loading()
 
         if task.error:
             log_message(
@@ -2494,7 +2663,7 @@ class LayersWidget(QWidget):
     # ==========================================================
 
     def load_alertas_inmet(self):
-        """Executa o script de alertas do INMET dentro do QGIS."""
+        """Executa os Alertas INMET sem bloquear a interface do QGIS."""
 
         script_path = (
             self._plugin_dir()
@@ -2515,20 +2684,99 @@ class LayersWidget(QWidget):
             )
             return
 
+        if hasattr(self, "_inmet_task"):
+            try:
+                if not self._inmet_task.isFinished():
+                    return
+            except Exception:
+                pass
+
         try:
+            self._show_loading()
+            QApplication.processEvents()
+
             log_message(
                 "Executando script de Alertas INMET..."
             )
 
-            avisos_inmet_qgis.executar()
+            self.alertas_inmet_btn.setEnabled(False)
+
+            task = _InmetAlertTask(self)
+            self._inmet_task = task
+
+            QgsApplication.taskManager().addTask(task)
+
+        except Exception as error:
+            self._hide_loading()
+            self.alertas_inmet_btn.setEnabled(True)
+
+            log_message(
+                f"Erro ao iniciar Alertas INMET: {error}"
+            )
+
+            QMessageBox.warning(
+                iface.mainWindow(),
+                "QMD Tools Explorer",
+                "Não foi possível iniciar os Alertas INMET.\n\n"
+                f"Erro: {error}"
+            )
+
+    def _finalizar_alertas_inmet(
+        self,
+        registros,
+        error=None,
+    ):
+        """
+        Finaliza os Alertas INMET na thread principal do QGIS.
+
+        Aqui são executadas as operações PyQGIS:
+        criação da camada, gravação do GeoPackage e
+        adição das camadas ao projeto.
+        """
+
+        try:
+
+            if error is not None:
+                raise error
+
+            if not registros:
+                log_message(
+                    "Nenhum alerta INMET válido após os filtros."
+                )
+                return
+
+            layer = (
+                avisos_inmet_qgis.criar_camada_memoria(
+                    registros
+                )
+            )
+
+            avisos_inmet_qgis.configurar_maptip(
+                layer
+            )
+
+            avisos_inmet_qgis.salvar_geopackage(
+                layer,
+                avisos_inmet_qgis.OUTPUT_GPKG,
+            )
+
+            avisos_inmet_qgis.adicionar_camadas_ordenadas(
+                avisos_inmet_qgis.OUTPUT_GPKG
+            )
 
             log_message(
                 "Script de Alertas INMET finalizado."
             )
 
-        except Exception as error:
             log_message(
-                f"Erro ao executar Alertas INMET: {error}"
+                f"Alertas INMET: {len(registros)} "
+                "polígono(s) carregado(s)."
+            )
+
+        except Exception as error:
+
+            log_message(
+                f"Erro ao processar Alertas INMET: {error}"
             )
 
             QMessageBox.warning(
@@ -2537,6 +2785,12 @@ class LayersWidget(QWidget):
                 "Não foi possível executar os Alertas INMET.\n\n"
                 f"Erro: {error}"
             )
+
+        finally:
+            self._hide_loading()
+            self.alertas_inmet_btn.setEnabled(True)
+
+            self._inmet_task = None
 
 
     # ==========================================================
@@ -2695,6 +2949,8 @@ class LayersWidget(QWidget):
         layer_id = layer_config["layer"]
         service_url = service["url"]
 
+        self._show_loading()
+
         # ----------------------------------------------------------
         # INPE Meteorologia — WMS-T
         #
@@ -2764,6 +3020,7 @@ class LayersWidget(QWidget):
                     f'Não foi possível carregar a camada "{layer_name}".\n\n'
                     f"Serviço: {service_type}"
                 )
+                self._hide_loading()
                 return
 
             self._add_reference_layer(
@@ -2771,6 +3028,7 @@ class LayersWidget(QWidget):
                 layer_name,
                 is_basemap=False,
             )
+            self._hide_loading()
             return
 
         # ----------------------------------------------------------
@@ -2791,11 +3049,14 @@ class LayersWidget(QWidget):
         #
         # As camadas GOES continuam sem data e seguem como WMS comum.
         # ----------------------------------------------------------
+
+        style = layer_config.get("styles", "default")
+
         uri_parts = [
             f"crs={crs}",
             f"format={image_format}",
             f"layers={layer_id}",
-            "styles=default",
+            f"styles={style}",
         ]
 
         if date:
@@ -2849,6 +3110,7 @@ class LayersWidget(QWidget):
                 f'Não foi possível carregar a camada "{layer_name}".\n\n'
                 f"Serviço: {service_type}"
             )
+            self._hide_loading()
             return
 
         self._add_reference_layer(
@@ -2856,7 +3118,97 @@ class LayersWidget(QWidget):
             layer_name,
             is_basemap=False,
         )
+        self._hide_loading()
 
+
+
+class _InmetAlertTask(QgsTask):
+    """
+    Executa a parte pesada dos Alertas INMET em segundo plano.
+
+    A thread executa somente rede, XML e Python. As operações
+    que criam/modificam camadas do QGIS são feitas no método
+    finished(), de volta à thread principal.
+    """
+
+    def __init__(self, owner):
+        super().__init__(
+            "Consultando Alertas INMET",
+            QgsTask.CanCancel,
+        )
+        self.owner = owner
+        self.registros = []
+        self.error = None
+
+    def run(self):
+        try:
+            self.registros = (
+                avisos_inmet_qgis.processar_registros()
+            )
+            return True
+
+        except Exception as error:
+            self.error = error
+            return False
+
+    def finished(self, result):
+        self.owner._finalizar_alertas_inmet(
+            self.registros,
+            self.error,
+        )
+
+
+
+class _GeoPackageDownloadTask(QgsTask):
+    """Baixa um GeoPackage em segundo plano."""
+
+    def __init__(self, url, local_path, layer_name, owner):
+        super().__init__(
+            f"Baixando camada {layer_name}",
+            QgsTask.CanCancel,
+        )
+        self.url = url
+        self.local_path = local_path
+        self.layer_name = layer_name
+        self.owner = owner
+        self.error = None
+
+    def run(self):
+        temp_path = self.local_path.with_suffix(
+            self.local_path.suffix + ".part"
+        )
+        try:
+            request = urllib.request.Request(
+                self.url,
+                headers={"User-Agent": "QMD Tools Explorer"},
+            )
+
+            with urllib.request.urlopen(request, timeout=120) as response:  # nosec B310
+                with temp_path.open("wb") as output:
+                    shutil.copyfileobj(response, output)
+
+            if self.isCanceled():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
+                return False
+
+            temp_path.replace(self.local_path)
+            return True
+
+        except Exception as error:
+            self.error = str(error)
+            try:
+                if temp_path.exists():
+                    temp_path.unlink()
+            except OSError:
+                pass
+            return False
+
+    def finished(self, result):
+        if self.owner is not None:
+            self.owner._geopackage_download_finished(self)
 
 
 class _CARBBOXTask(QgsTask):

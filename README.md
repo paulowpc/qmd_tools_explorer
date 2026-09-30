@@ -215,14 +215,19 @@ Consulte o arquivo [`LICENSE`](LICENSE) para obter os termos completos da licen�
 
 ## 📝 Registro de alterações
 
-### 0.1.3 — 2026-09-25
+### 0.1.3 — 2026-09-30
 
 - Melhorias na visualização das thumbnails das cenas;
 - Inclusão da área de interesse (ROI) sobreposta às thumbnails;
 - Ajustes na organização e apresentação da tabela de resultados;
-- Melhorias na visualização do botão de thumbnail;
+- Melhorias na visualização dos botões de thumbnail;
+- Melhorias na análise dos Pontos de Atenção GOES;
+- Inclusão das diferentes versões dos dados GOES e classes de repetição;
+- Inclusão de indicadores de carregamento durante operações de processamento e download;
+- Melhorias no carregamento das camadas de referência;
 - Correção na leitura e filtragem dos alertas meteorológicos do INMET;
-- Ajustes no processamento dos arquivos XML dos alertas do INMET.
+- Ajustes no processamento dos arquivos XML dos alertas do INMET;
+- Ajustes no filtro de satélites da ferramenta de focos de queimadas.
 
 ### 0.1.2 — 2026-09-22
 
