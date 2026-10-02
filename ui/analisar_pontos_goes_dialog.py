@@ -194,6 +194,12 @@ class AnaliseGoesWorker(QThread):
                 adicionar_ao_projeto=False
             )
 
+            # Devolve também os caminhos dos arquivos utilizados na análise.
+            # Eles serão necessários posteriormente para recuperar os focos
+            # dos eventos selecionados ao adicionar as camadas ao mapa.
+            resultado["goes_path"] = str(goes_path)
+            resultado["eventos_path"] = str(eventos_path)
+
             self.finished_ok.emit(
                 resultado
             )
@@ -1359,6 +1365,17 @@ class AnalisarPontosGoesDialog(QWidget):
             self.loading.hide()
 
         self.resultado = resultado
+
+        # Recuperar os caminhos dos arquivos utilizados pelo worker.
+        # O GeoPackage de Eventos Ativos é usado posteriormente para
+        # carregar os focos dos eventos selecionados.
+        self.goes_path = resultado.get(
+            "goes_path"
+        )
+
+        self.eventos_path = resultado.get(
+            "eventos_path"
+        )
 
         self.progress.setVisible(
             False
