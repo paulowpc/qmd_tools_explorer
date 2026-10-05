@@ -146,7 +146,7 @@ class BDCSTACDock(QDockWidget):
                 if line.strip().startswith("version="):
                     return line.split("=", 1)[1].strip()
         except Exception:
-            pass
+            return "desconhecida"
 
         return "desconhecida"
 
