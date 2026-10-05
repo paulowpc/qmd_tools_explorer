@@ -158,7 +158,7 @@
       "name": "UC Federal",
       "tipo_area": "Unidade de Conservação Federal",
       "type": "GEOPACKAGE",
-      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/ucf_icmbio_mma.gpkg",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/ucs_federais_mma.gpkg",
       "filename": "ucf_icmbio_mma.gpkg",
       "enabled": true
     },
@@ -166,7 +166,7 @@
       "name": "UC Estadual",
       "tipo_area": "Unidade de Conservação Estadual",
       "type": "GEOPACKAGE",
-      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/uce_mma.gpkg",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/ucs_estaduais_mma.gpkg",
       "filename": "uce_mma.gpkg",
       "enabled": true
     },
@@ -189,7 +189,7 @@
       "name": "Assentamentos",
       "tipo_area": "Assentamento",
       "type": "GEOPACKAGE",
-      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/pa_assentamentos.gpkg",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/assentamentos_incra.gpkg",
       "filename": "pa_assentamentos.gpkg",
       "enabled": true
     },
@@ -197,7 +197,7 @@
       "name": "Quilombos",
       "tipo_area": "Quilombo",
       "type": "GEOPACKAGE",
-      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/quilombos.gpkg",
+      "url": "https://dataserver-coids.inpe.br/queimadas/queimadas/outros/ciman/datalake/quilombos_incra.gpkg",
       "filename": "quilombos.gpkg",
       "enabled": true
     }

@@ -962,8 +962,8 @@ class FireWidget(QWidget):
 
     def _montar_cql(self, inicio, fim, satelites):
         partes = [
-            "data_hora_gmt >= '" + inicio.strftime("%Y-%m-%dT%H:%M:%S.000") + "'",
-            "data_hora_gmt <= '" + fim.strftime("%Y-%m-%dT%H:%M:%S.000") + "'",
+            "data_hora_gmt >= '" + inicio.strftime("%Y-%m-%dT%H:%M:%SZ") + "'",
+            "data_hora_gmt <= '" + fim.strftime("%Y-%m-%dT%H:%M:%SZ") + "'",
         ]
 
         if satelites:
@@ -1374,6 +1374,18 @@ class FireWidget(QWidget):
                     continue
                 vistos.add(fid)
                 features_unicas.append(feature)
+
+            if not features_unicas:
+                log_message("[FOCOS] Total final: 0 feições.")
+                log_message(
+                    "[FOCOS] Nenhum foco encontrado para os filtros selecionados."
+                )
+                QMessageBox.information(
+                    self,
+                    "Focos",
+                    "Nenhum foco encontrado para os filtros selecionados.",
+                )
+                return
 
             nome = (
                 f"Focos da Consulta - {inicio:%d/%m/%Y} a {fim:%d/%m/%Y}"

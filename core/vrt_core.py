@@ -265,6 +265,154 @@ def get_vrt_filename(
 
 
 # =========================================================
+# DESCRIÇÕES DAS BANDAS
+# =========================================================
+
+def get_band_description(band_name, satellite):
+    """
+    Retorna uma descrição legível para a banda espectral.
+
+    A descrição é usada somente na propriedade da banda do VRT,
+    mantendo a numeração interna do VRT (Band 1, Band 2, ...).
+
+    As composições/bandas disponíveis são definidas em collection_bdc.json.
+    Aqui são acrescentadas apenas as descrições espectrais correspondentes.
+    """
+
+    band = str(band_name).upper().replace(" ", "")
+
+    descriptions = {
+        # Sentinel-2
+        "SENTINEL-2": {
+            "B01": "B01 – Coastal/Aerosol",
+            "B02": "B02 – Blue",
+            "B03": "B03 – Green",
+            "B04": "B04 – Red",
+            "B05": "B05 – Red Edge 1",
+            "B06": "B06 – Red Edge 2",
+            "B07": "B07 – Red Edge 3",
+            "B08": "B08 – NIR",
+            "B8A": "B8A – Narrow NIR",
+            "B09": "B09 – Water Vapor",
+            "B10": "B10 – Cirrus",
+            "B11": "B11 – SWIR 1",
+            "B12": "B12 – SWIR 2",
+        },
+
+        # Landsat / nomes de assets usados pelo BDC
+        "LANDSAT-2": {
+            "RED": "B4 – Red",
+            "GREEN": "B3 – Green",
+            "BLUE": "B2 – Blue",
+            "NIR08": "B5 – NIR",
+            "SWIR11": "B6 – SWIR 1",
+            "SWIR22": "B7 – SWIR 2",
+            "B1": "B1 – Coastal/Aerosol",
+            "B2": "B2 – Blue",
+            "B3": "B3 – Green",
+            "B4": "B4 – Red",
+            "B5": "B5 – NIR",
+            "B6": "B6 – SWIR 1",
+            "B7": "B7 – SWIR 2",
+            "B8": "B8 – Panchromatic",
+            "B9": "B9 – Cirrus",
+            "B10": "B10 – Thermal Infrared 1",
+            "B11": "B11 – Thermal Infrared 2",
+        },
+
+        # Amazonia-1 / WFI
+        "AMAZONIA-1/WFI": {
+            "BAND1": "BAND1 – Blue",
+            "BAND2": "BAND2 – Green",
+            "BAND3": "BAND3 – Red",
+            "BAND4": "BAND4 – NIR",
+        },
+
+        # CBERS-4 / WFI
+        "CBERS-4/WFI": {
+            "BAND13": "BAND13 – Blue",
+            "BAND14": "BAND14 – Green",
+            "BAND15": "BAND15 – Red",
+            "BAND16": "BAND16 – NIR",
+        },
+
+        # CBERS-4A / WFI
+        "CBERS-4A/WFI": {
+            "BAND13": "BAND13 – Blue",
+            "BAND14": "BAND14 – Green",
+            "BAND15": "BAND15 – Red",
+            "BAND16": "BAND16 – NIR",
+        },
+
+        # CBERS-4 / MUX
+        "CBERS-4/MUX": {
+            "BAND5": "BAND5 – Blue",
+            "BAND6": "BAND6 – Green",
+            "BAND7": "BAND7 – Red",
+            "BAND8": "BAND8 – NIR",
+        },
+
+        # CBERS-4A / MUX
+        "CBERS-4A/MUX": {
+            "BAND5": "BAND5 – Blue",
+            "BAND6": "BAND6 – Green",
+            "BAND7": "BAND7 – Red",
+            "BAND8": "BAND8 – NIR",
+        },
+    }
+
+    satellite_key = str(satellite).upper()
+    satellite_descriptions = descriptions.get(satellite_key, {})
+
+    return satellite_descriptions.get(
+        band,
+        str(band_name),
+    )
+
+
+def set_vrt_band_descriptions(vrt_path, band_names, satellite):
+    """
+    Adiciona a descrição espectral às bandas do VRT final.
+    """
+
+    ds = gdal.Open(
+        vrt_path,
+        gdal.GA_Update,
+    )
+
+    if not ds:
+        log_message(
+            f"[VRT] Não foi possível abrir o VRT "
+            f"para adicionar descrições: {vrt_path}"
+        )
+        return
+
+    try:
+        for index, band_name in enumerate(
+            band_names,
+            start=1,
+        ):
+            band = ds.GetRasterBand(index)
+
+            if not band:
+                continue
+
+            description = get_band_description(
+                band_name,
+                satellite,
+            )
+
+            band.SetDescription(description)
+
+            log_message(
+                f"[VRT] Banda {index}: {description}"
+            )
+
+    finally:
+        ds = None
+
+
+# =========================================================
 # GERA VRTS INDIVIDUAIS
 # =========================================================
 
@@ -470,6 +618,16 @@ def generate_individual_vrts(
             satellite,
             clip_extent=clip_extent,
         ):
+
+            # ---------------------------------------------
+            # DESCRIÇÃO DAS BANDAS
+            # ---------------------------------------------
+
+            set_vrt_band_descriptions(
+                vrt_path,
+                available_bands,
+                satellite,
+            )
 
             mosaic_groups.setdefault(
                 (

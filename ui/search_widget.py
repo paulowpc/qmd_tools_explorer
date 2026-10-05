@@ -526,6 +526,21 @@ class SearchWidget(QWidget):
             28
         )
 
+        self.save_output_btn = QPushButton(
+            "Salvar"
+        )
+        self.save_output_btn.setToolTip(
+            "Salvar o diretório de saída atual para as próximas sessões."
+        )
+        self.save_output_btn.setFixedHeight(28)
+
+        self.restore_output_btn = QPushButton(
+            "Restaurar padrão"
+        )
+        self.restore_output_btn.setToolTip(
+            "Remover o diretório personalizado e voltar para o System temp (default)."
+        )
+        self.restore_output_btn.setFixedHeight(28)
 
         out_row.addWidget(
             self.output
@@ -539,21 +554,42 @@ class SearchWidget(QWidget):
             self.clear_cache_btn
         )
 
+        output_buttons_row = QHBoxLayout()
+        output_buttons_row.setContentsMargins(0, 0, 0, 0)
+        output_buttons_row.addStretch()
+        output_buttons_row.addWidget(
+            self.save_output_btn
+        )
+        output_buttons_row.addWidget(
+            self.restore_output_btn
+        )
+
+        output_layout = QVBoxLayout()
+        output_layout.setContentsMargins(0, 0, 0, 0)
+        output_layout.setSpacing(3)
+        output_layout.addLayout(out_row)
+        output_layout.addLayout(output_buttons_row)
 
         form.addRow(
             "Diretório de Saída:",
-            out_row,
+            output_layout,
         )
-
 
         choose.clicked.connect(
             self.choose_output
         )
 
+        self.save_output_btn.clicked.connect(
+            self.save_output_clicked
+        )
+
+        self.restore_output_btn.clicked.connect(
+            self.restore_output_clicked
+        )
+
         self.clear_cache_btn.clicked.connect(
             self.clear_cache_clicked
         )
-
 
         layout.addLayout(
             form
@@ -1299,52 +1335,97 @@ class SearchWidget(QWidget):
             self.output.text(),
         )
 
-        if path:
+        if not path:
+            return
 
-            try:
-                selected_path = Path(path).resolve()
-                default_path = get_cache_dir().resolve()
-            except Exception:
-                selected_path = None
-                default_path = None
+        try:
+            selected_path = Path(path).resolve()
+            default_path = get_cache_dir().resolve()
+        except Exception:
+            selected_path = None
+            default_path = None
 
-            if (
-                selected_path is not None
-                and default_path is not None
-                and selected_path == default_path
-            ):
-                self.output.clear()
-                self.output.setPlaceholderText(
-                    "System temp (default)"
-                )
-                save_output_dir(
-                    str(default_path)
-                )
-            else:
-                self.output.setText(
-                    path
-                )
-                save_output_dir(
-                    path
-                )
+        if (
+            selected_path is not None
+            and default_path is not None
+            and selected_path == default_path
+        ):
+            self.output.clear()
+            self.output.setPlaceholderText(
+                "System temp (default)"
+            )
+        else:
+            self.output.setText(path)
+
+    def save_output_clicked(self):
+
+        output = self.output.text().strip()
+
+        if output:
+            save_output_dir(output)
+            log_message(
+                f"[OUTPUT] Diretório de saída salvo: {output}"
+            )
+            return
+
+        save_output_dir("")
+        log_message(
+            "[OUTPUT] Diretório de saída restaurado para o padrão."
+        )
+
+    def restore_output_clicked(self):
+
+        save_output_dir("")
+        self.output.clear()
+        self.output.setPlaceholderText(
+            "System temp (default)"
+        )
+        log_message(
+            "[OUTPUT] Diretório de saída restaurado para o padrão."
+        )
 
 
     # ==========================================================
-    # LIMPAR CACHE PADRÃO
+    # LIMPAR CACHE DO QMD TOOLS EXPLORER
     # ==========================================================
 
     def clear_cache_clicked(self):
 
-        cache_dir = get_cache_dir()
+        # O cache nunca é limpo diretamente no diretório
+        # escolhido pelo usuário. O plugin sempre cria/usa
+        # uma área própria e segura:
+        #
+        #   <diretório de saída>/qmd_tools_explorer/cache
+        #
+        # Quando o usuário utiliza o System Default, get_cache_dir()
+        # já aponta para a área de cache padrão do plugin.
+
+        selected_output = self.output.text().strip()
+
+        if selected_output:
+            base_dir = Path(selected_output).resolve()
+            cache_dir = (
+                base_dir
+                / "qmd_tools_explorer"
+                / "cache"
+            )
+
+            # Garante que a estrutura própria do plugin exista.
+            cache_dir.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+        else:
+            cache_dir = get_cache_dir().resolve()
 
         answer = QMessageBox.question(
             iface.mainWindow(),
             "QMD Tools Explorer",
             (
                 "Deseja realmente limpar o cache do QMD Tools Explorer?\n\n"
-                f"Local: {cache_dir}\n\n"
-                "Os arquivos armazenados no cache padrão serão removidos.\n"
-                "Arquivos de um diretório de saída personalizado não serão afetados."
+                "Os arquivos temporários gerados pelo plugin serão removidos.\n\n"
+                f"Cache:\n{cache_dir}\n\n"
+                "Somente arquivos dentro dessa pasta serão removidos."
             ),
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No,
@@ -1353,9 +1434,28 @@ class SearchWidget(QWidget):
         if answer != QMessageBox.Yes:
             return
 
-        ok, errors = clear_cache()
+        errors = []
 
-        if ok:
+        try:
+            # Remove somente o conteúdo do diretório de cache.
+            # O próprio diretório qmd_tools_explorer/cache é mantido.
+            for item in cache_dir.iterdir():
+                try:
+                    if item.is_dir():
+                        shutil.rmtree(item)
+                    else:
+                        item.unlink()
+                except Exception as error:
+                    errors.append(
+                        f"{item}: {error}"
+                    )
+
+        except Exception as error:
+            errors.append(
+                f"{cache_dir}: {error}"
+            )
+
+        if not errors:
             log_message(
                 f"[CACHE] Cache limpo: {cache_dir}"
             )
@@ -1437,14 +1537,7 @@ class SearchWidget(QWidget):
             )
 
 
-            if output:
-
-                save_output_dir(
-                    output
-                )
-
-            else:
-
+            if not output:
                 output = get_output_dir()
 
 

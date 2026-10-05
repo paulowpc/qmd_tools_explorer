@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from io import BytesIO
+from pathlib import Path
 from qgis.PyQt.QtGui import QFont
 
 import requests
@@ -46,51 +47,9 @@ from ..core.stac_core import (
 
 from ..core.vrt_core import generate_individual_vrts
 from ..core.mosaic_core import create_mosaics_from_groups
-from ..config.config import load_collections
+from ..config.config import load_collections, get_cache_dir
 
 from ..utils.footprint import add_footprints
-
-class ImageProcessingTask(QgsTask):
-    """Executa o processamento das imagens em segundo plano."""
-
-    def __init__(
-        self,
-        description,
-        process_function,
-        on_finished=None,
-    ):
-        super().__init__(
-            description,
-            QgsTask.CanCancel
-        )
-
-        self.process_function = process_function
-        self.on_finished = on_finished
-        self.error = None
-        self.result = None
-
-    def run(self):
-
-        try:
-
-            self.result = self.process_function()
-
-            return True
-
-        except Exception as e:
-
-            self.error = e
-
-            return False
-
-    def finished(self, result):
-
-        if self.on_finished:
-
-            self.on_finished(
-                result,
-                self.error,
-            )
 
 class ThumbnailTask(QgsTask):
     """Baixa e prepara o thumbnail em segundo plano."""
@@ -1917,10 +1876,47 @@ class ResultsWidget(QWidget):
             # DIRETÓRIO DE SAÍDA
             # -------------------------------------------------
 
-            out = (
-                f"{self.output_dir}/"
-                f"{collection.replace('/', '_').replace(' ', '_')}"
+            # -------------------------------------------------
+            # DIRETÓRIO DE CACHE DO QMD TOOLS EXPLORER
+            #
+            # O diretório informado pelo usuário é tratado como
+            # diretório-base. Os arquivos gerados pelo plugin ficam
+            # sempre dentro de uma área própria:
+            #
+            #   <base>/qmd_tools_explorer/cache/
+            #
+            # Quando o System Default já estiver sendo usado,
+            # get_cache_dir() já aponta diretamente para essa área.
+            # Evita-se, portanto, criar cache/qmd_tools_explorer/cache.
+            # -------------------------------------------------
+
+            base_dir = Path(self.output_dir).resolve()
+            default_cache_dir = Path(get_cache_dir()).resolve()
+
+            if base_dir == default_cache_dir:
+                cache_dir = base_dir
+            else:
+                cache_dir = (
+                    base_dir
+                    / "qmd_tools_explorer"
+                    / "cache"
+                )
+
+            cache_dir.mkdir(
+                parents=True,
+                exist_ok=True,
             )
+
+            out = (
+                cache_dir
+                / collection.replace('/', '_').replace(' ', '_')
+            )
+
+            log_message(
+                f"[CACHE] Diretório de processamento: {out}"
+            )
+
+            out = str(out)
 
             jobs.append(
                 {
@@ -1952,12 +1948,22 @@ class ResultsWidget(QWidget):
             QApplication.processEvents()
 
         # -----------------------------------------------------
-        # PROCESSAMENTO EM SEGUNDO PLANO
+        # PROCESSAMENTO
+        # -----------------------------------------------------
+        #
+        # O processamento dos VRTs é executado na thread principal.
+        # Isso é intencional: generate_individual_vrts() cria/carrega
+        # QgsRasterLayer e adiciona as camadas ao QgsProject. Essas
+        # operações da API do QGIS não devem ser executadas dentro de
+        # QgsTask.run().
+        #
+        # O cache seguro e a preparação dos jobs acima permanecem
+        # exatamente como na versão 0.1.3.
         # -----------------------------------------------------
 
         mosaic_enabled = self.mosaic.isChecked()
 
-        def executar_processamento():
+        try:
 
             for job in jobs:
 
@@ -2004,51 +2010,25 @@ class ResultsWidget(QWidget):
                         out,
                     )
 
-            return True
-
-        # -----------------------------------------------------
-        # FINALIZAÇÃO
-        # -----------------------------------------------------
-
-        def finalizar_processamento(
-            result,
-            error=None,
-        ):
-
-            if self.loading:
-
-                self.loading.hide()
-
-            if error:
-
-                log_message(
-                    f"[VRT] Erro no processamento: {error}"
-                )
-
-                QMessageBox.warning(
-                    self,
-                    "QMD Tools Explorer",
-                    "Ocorreu um erro durante o processamento "
-                    "das imagens.\n\n"
-                    f"{error}",
-                )
-
-                return
-
             log_message(
                 "[VRT] Processamento concluído."
             )
 
-        # -----------------------------------------------------
-        # CRIAR TAREFA
-        # -----------------------------------------------------
+        except Exception as e:
 
-        task = ImageProcessingTask(
-            "Processando imagens",
-            executar_processamento,
-            finalizar_processamento,
-        )
+            log_message(
+                f"[VRT] Erro no processamento: {e}"
+            )
 
-        QgsApplication.taskManager().addTask(
-            task
-        )
+            QMessageBox.warning(
+                self,
+                "QMD Tools Explorer",
+                "Ocorreu um erro durante o processamento "
+                "das imagens.\n\n"
+                f"{e}",
+            )
+
+        finally:
+
+            if self.loading:
+                self.loading.hide()

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pathlib import Path
+import configparser
 
 from qgis.PyQt.QtCore import Qt, QSize, QRect, QSettings
 from qgis.PyQt.QtWidgets import (
@@ -131,6 +132,24 @@ class BDCSTACDock(QDockWidget):
     # INTERFACE
     # ======================================================
 
+    def _plugin_version(self):
+        """Lê a versão diretamente do metadata.txt do plugin."""
+        metadata_path = (
+            Path(__file__).resolve().parent.parent
+            / "metadata.txt"
+        )
+
+        try:
+            for line in metadata_path.read_text(
+                encoding="utf-8"
+            ).splitlines():
+                if line.strip().startswith("version="):
+                    return line.split("=", 1)[1].strip()
+        except Exception:
+            pass
+
+        return "desconhecida"
+
     def _build_ui(self):
 
         root = QWidget(self)
@@ -241,21 +260,21 @@ class BDCSTACDock(QDockWidget):
         # ==================================================
 
         header = QWidget()
-        header.setFixedHeight(45)
+        header.setFixedHeight(58)
 
         header_layout = QVBoxLayout(header)
         header_layout.setContentsMargins(4, 0, 4, 0)
         header_layout.setSpacing(0)
 
         # --------------------------------------------------
-        # TÍTULO
+        # TÍTULO E VERSÃO
         # --------------------------------------------------
 
         title_label = QLabel("QMD Tools Explorer")
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setSizePolicy(
             QSizePolicy.Expanding,
-            QSizePolicy.Expanding
+            QSizePolicy.Fixed
         )
         title_label.setStyleSheet("""
             QLabel {
@@ -265,7 +284,23 @@ class BDCSTACDock(QDockWidget):
             }
         """)
 
+        version_label = QLabel(
+            f"v{self._plugin_version()}"
+        )
+        version_label.setAlignment(Qt.AlignCenter)
+        version_label.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed
+        )
+        version_label.setStyleSheet("""
+            QLabel {
+                font-size: 9px;
+                color: #6b7280;
+            }
+        """)
+
         header_layout.addWidget(title_label)
+        header_layout.addWidget(version_label)
         right_layout.addWidget(header)
 
         # ==================================================
